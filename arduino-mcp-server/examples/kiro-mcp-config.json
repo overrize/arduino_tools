@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "arduino": {
+      "command": "python",
+      "args": ["-m", "arduino_mcp_server.server"],
+      "disabled": false,
+      "autoApprove": [
+        "check_arduino_cli",
+        "detect_boards",
+        "create_led_blink",
+        "compile_sketch",
+        "upload_sketch",
+        "monitor_serial",
+        "full_workflow_led_blink"
+      ]
+    }
+  }
+}

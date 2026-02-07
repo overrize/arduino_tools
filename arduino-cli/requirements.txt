@@ -1,0 +1,4 @@
+# Arduino CLI 工具依赖
+
+# 剪贴板支持（可选）
+pyperclip>=1.8.2

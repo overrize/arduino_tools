@@ -1,0 +1,69 @@
+# Arduino Tools - Continuous Integration
+# 持续集成测试工作流
+# 触发: push / pull_request 到 main 或 develop 分支
+
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+jobs:
+  test-arduino-mcp-server:
+    name: Arduino MCP Server
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: arduino-mcp-server
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('arduino-mcp-server/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install arduino-cli
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
+          echo "$HOME/bin" >> $GITHUB_PATH
+          export PATH="$HOME/bin:$PATH"
+          arduino-cli version
+
+      - name: Install Arduino cores
+        run: |
+          arduino-cli config init 2>/dev/null || true
+          arduino-cli core update-index
+          arduino-cli core install arduino:avr
+          arduino-cli core install arduino:mbed_rp2040
+
+      - name: Install project dependencies
+        run: |
+          pip install -e ".[dev]"
+
+      - name: Run unit tests
+        run: |
+          python -m pytest tests/ -m unit -v --tb=short
+
+      - name: Run integration tests
+        run: |
+          python -m pytest tests/ -m integration -v --tb=short
+
+      - name: Test summary
+        if: always()
+        run: |
+          echo "## CI Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Unit tests: completed" >> $GITHUB_STEP_SUMMARY
+          echo "- Integration tests: completed (arduino-cli required)" >> $GITHUB_STEP_SUMMARY
