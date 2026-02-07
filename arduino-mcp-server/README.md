@@ -70,6 +70,10 @@ python test_stability.py
 }
 ```
 
+### 助手 / Steering 配置（可选）
+
+配合本 MCP 使用的「一句话端到端」助手行为说明见 [examples/arduino-assistant-steering.md](./examples/arduino-assistant-steering.md)。可将该文件作为 Kiro/Cursor 的 steering 或 skill，让 AI 自动完成：检测板卡 → 生成代码 → 编译 → 上传 → 监控，并约定何时询问、何时使用默认值。
+
 ## 架构
 
 ### 系统架构
@@ -522,7 +526,8 @@ arduino-mcp-server/
 │   ├── wokwi_generator.py  # Wokwi 仿真生成
 │   └── server.py           # MCP Server 主入口
 ├── examples/
-│   ├── example-conversations.md
+│   ├── example-conversations.md   # 示例对话
+│   ├── arduino-assistant-steering.md  # 助手/Skill 配置（配合 MCP 使用）
 │   └── kiro-mcp-config.json
 ├── pyproject.toml
 └── README.md
