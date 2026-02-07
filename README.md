@@ -45,7 +45,7 @@
 ├── plans/
 │   └── 2026-02-01-arduino-mcp-server-design.md  # 完整设计文档
 │
-├── arduino-mcp-server/                           # 实现代码
+├── arduino-mcp-server/                           # MCP Server 版本（依赖 kiro）
 │   ├── src/arduino_mcp_server/
 │   │   ├── server.py          # MCP Server 主入口
 │   │   ├── models.py          # 数据模型
@@ -53,69 +53,84 @@
 │   │   ├── arduino_cli.py     # CLI 封装
 │   │   └── code_generator.py  # 代码生成
 │   │
-│   ├── examples/
-│   │   ├── example-conversations.md  # 对话示例
-│   │   └── kiro-mcp-config.json      # 配置示例
-│   │
-│   ├── test_basic.py          # 测试脚本
-│   ├── README.md              # 项目说明
-│   ├── QUICKSTART.md          # 快速开始
-│   ├── USAGE.md               # 使用指南
-│   ├── ARCHITECTURE.md        # 架构说明
-│   └── IMPLEMENTATION_LOG.md  # 实现记录
+│   └── ...
 │
-├── GETTING_STARTED.md         # 开始使用
-├── PROJECT_SUMMARY.md         # 项目总结
-├── PROJECT_CHECKLIST.md       # 项目清单
-└── README.md                  # 本文件
+├── arduino-client/                                # ⭐ 独立 Client 工具（推荐）
+│   ├── arduino_client/         # Client 包
+│   │   ├── client.py           # ArduinoClient 可编程 API
+│   │   ├── cli.py              # CLI 入口
+│   │   ├── code_generator.py   # LLM 代码生成
+│   │   └── ...                 # 其他模块
+│   ├── docs/                   # 文档和 Skills
+│   └── README.md               # Client 工具说明
+│
+├── arduino-cli/                                  # CLI 工具（Kiro 集成）
+│   └── ...
+│
+├── docs/                                         # 项目文档
+└── README.md                                     # 本文件
 ```
 
 ## 🚀 快速开始
 
-### 1. 查看设计文档
+### 方式一：独立 Client 工具（推荐）⭐
 
 ```bash
-plans/2026-02-01-arduino-mcp-server-design.md
+cd arduino-client
+pip install -e .
+cp .env.example .env
+# 编辑 .env，填入 OPENAI_API_KEY=sk-xxx
+
+# 生成代码并编译上传
+python -m arduino_client gen "用 Arduino Uno 做一个 LED 闪烁，13 号引脚" blink_demo --build --flash
 ```
 
-了解完整的技术架构和设计思路。
+**特点**：
+- ✅ 独立工具，不依赖 kiro
+- ✅ 使用 LLM API 生成代码（更灵活）
+- ✅ 支持 CLI 和 Python API 两种方式
+- ✅ 参考 STloop 架构设计
 
-### 2. 运行测试
+详见：[arduino-client/README.md](arduino-client/README.md)
+
+### 方式二：MCP Server（需要 kiro）
 
 ```bash
 cd arduino-mcp-server
 pip install -e .
-python test_basic.py
+# 配置 kiro MCP Server
+# 在 kiro 中使用 MCP 工具
 ```
 
-验证代码生成和意图解析功能。
+**特点**：
+- ✅ 通过 kiro 使用
+- ✅ 模板驱动代码生成（快速可靠）
+- ✅ 适合集成到现有工作流
 
-### 3. 查看生成的代码
+详见：[arduino-mcp-server/README.md](arduino-mcp-server/README.md)
 
-```bash
-arduino-mcp-server/test_output/test_led_blink/test_led_blink.ino
-```
+### 阅读文档
 
-### 4. 阅读文档
-
-- **[GETTING_STARTED.md](GETTING_STARTED.md)** - 开始使用指南
-- **[arduino-mcp-server/QUICKSTART.md](arduino-mcp-server/QUICKSTART.md)** - 5 分钟快速上手
-- **[arduino-mcp-server/USAGE.md](arduino-mcp-server/USAGE.md)** - 详细使用指南
+- **[arduino-client/README.md](arduino-client/README.md)** - Client 工具说明（推荐）
+- **[docs/general/GETTING_STARTED.md](docs/general/GETTING_STARTED.md)** - 开始使用指南
+- **[arduino-mcp-server/README.md](arduino-mcp-server/README.md)** - MCP Server 说明
 
 ## ✅ 已实现的功能
 
 ### 核心功能
 - ✅ 自然语言意图解析
-- ✅ LED 闪烁代码生成
+- ✅ LED 闪烁代码生成（模板 + LLM 两种方式）
 - ✅ arduino-cli 完整封装
 - ✅ 编译、上传、监控一体化
-- ✅ 7 个 MCP 工具
+- ✅ 7 个 MCP 工具（MCP Server 版本）
+- ✅ CLI 和 Python API（Client 版本）
 - ✅ 完整文档体系
 
 ### 支持的硬件
 - ✅ Arduino Uno
 - ✅ Arduino Nano
 - ✅ Raspberry Pi Pico
+- ✅ ESP32
 
 ### MCP 工具
 1. `check_arduino_cli` - 检查环境
@@ -228,8 +243,9 @@ void loop() {
 
 ### 按功能查找
 
-- **MCP Server**: [docs/mcp-server/](docs/mcp-server/)
-- **CLI Tool**: [docs/cli-tool/](docs/cli-tool/)
+- **Client 工具**: [arduino-client/](arduino-client/) ⭐ 推荐
+- **MCP Server**: [arduino-mcp-server/](arduino-mcp-server/) 和 [docs/mcp-server/](docs/mcp-server/)
+- **CLI Tool**: [arduino-cli/](arduino-cli/) 和 [docs/cli-tool/](docs/cli-tool/)
 - **板卡检测**: [docs/detection/](docs/detection/)
 - **Wokwi 仿真**: [docs/wokwi/](docs/wokwi/)
 - **通用指南**: [docs/general/](docs/general/)

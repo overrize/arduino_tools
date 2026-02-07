@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "arduino-client"
+version = "0.1.0"
+description = "Arduino Client — Arduino 自然语言端到端开发 Client（LLM + arduino-cli）"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = [
+    "pyserial>=3.5",
+    "psutil>=5.9.0",
+    "openai>=1.0.0,<2.0.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+yaml = ["pyyaml>=6.0"]  # 配置文件支持
+
+[project.scripts]
+arduino-client = "arduino_client.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["arduino_client*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
