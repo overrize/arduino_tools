@@ -119,14 +119,14 @@ class WokwiGenerator:
         ])
         self.connections.append([
             f"{resistor_id}:2",
-            f"{led_id}:A",  # A = 阳极
+            f"{led_id}:A",  # A 为阳极
             "green",
             []
         ])
         
         # 连接：LED 阴极 → GND
         self.connections.append([
-            f"{led_id}:C",  # C = 阴极
+            f"{led_id}:C",  # C 为阴极
             f"{board_id}:GND",
             "black",  # 黑色连线（GND）
             []
@@ -223,11 +223,11 @@ class WokwiGenerator:
             Wokwi 中的引脚名称
         """
         if "pico" in board_fqbn.lower():
-            return f"GP{pin}"  # Pico: GP0, GP1, ...
+            return f"GP{pin}"  # Pico 引脚：GP0, GP1, ...
         elif "esp32" in board_fqbn.lower():
-            return f"GPIO{pin}"  # ESP32: GPIO0, GPIO1, ...
+            return f"GPIO{pin}"  # ESP32 引脚：GPIO0, GPIO1, ...
         else:
-            # Arduino Uno/Nano: 直接使用数字
+            # Arduino Uno/Nano 直接使用数字
             return str(pin)
     
     def save_diagram(self, diagram: Dict[str, Any], output_path: str):

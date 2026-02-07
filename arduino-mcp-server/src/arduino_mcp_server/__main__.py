@@ -1,4 +1,4 @@
-"""Arduino MCP Server - Entry point for running as module"""
+"""Arduino MCP Server - 以模块方式运行时的入口"""
 
 from .server import main
 

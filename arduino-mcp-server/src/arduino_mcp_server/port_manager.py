@@ -1,4 +1,4 @@
-"""Serial port management utilities"""
+"""串口管理工具"""
 
 import subprocess
 import time
@@ -10,14 +10,14 @@ logger = logging.getLogger(__name__)
 
 
 class PortManager:
-    """Manage serial port access and conflicts"""
+    """管理串口访问与占用冲突"""
     
     def __init__(self):
-        self.monitored_ports = {}  # port -> process info
+        self.monitored_ports = {}  # 端口 -> 进程信息
         logger.debug("PortManager initialized")
     
     def find_port_users(self, port: str) -> List[dict]:
-        """Find processes using the specified port"""
+        """查找占用指定串口的进程"""
         users = []
         
         try:
@@ -26,7 +26,7 @@ class PortManager:
                     connections = proc.info.get('connections', [])
                     if connections:
                         for conn in connections:
-                            # Check if this process is using the port
+                            # 判断该进程是否占用该串口
                             if hasattr(conn, 'laddr') and port.upper() in str(conn).upper():
                                 users.append({
                                     'pid': proc.info['pid'],
@@ -43,7 +43,7 @@ class PortManager:
         return users
     
     def close_port_users(self, port: str, exclude_pids: List[int] = None) -> bool:
-        """Close processes using the port (except excluded PIDs)"""
+        """关闭占用该串口的进程（可排除指定 PID）"""
         exclude_pids = exclude_pids or []
         users = self.find_port_users(port)
         
@@ -63,11 +63,11 @@ class PortManager:
                 proc = user['process']
                 proc.terminate()
                 
-                # Wait for graceful termination
+                # 等待进程正常退出
                 try:
                     proc.wait(timeout=2)
                 except psutil.TimeoutExpired:
-                    # Force kill if not terminated
+                    # 未退出则强制结束
                     logger.warning(f"Force killing {user['name']}")
                     proc.kill()
                     proc.wait(timeout=1)
@@ -76,12 +76,12 @@ class PortManager:
             except Exception as e:
                 logger.error(f"Failed to close {user['name']}: {e}")
         
-        # Wait a bit for port to be released
+        # 稍等以便串口释放
         time.sleep(0.5)
         return True
     
     def is_port_available(self, port: str) -> bool:
-        """Check if port is available"""
+        """检查串口是否可用"""
         import serial
         try:
             ser = serial.Serial(port, 9600, timeout=0.1)
@@ -93,7 +93,7 @@ class PortManager:
             return False
     
     def wait_for_port_available(self, port: str, timeout: int = 5) -> bool:
-        """Wait for port to become available"""
+        """等待串口变为可用"""
         logger.debug(f"Waiting for {port} to become available (timeout: {timeout}s)")
         start_time = time.time()
         
@@ -107,13 +107,13 @@ class PortManager:
         return False
     
     def prepare_port_for_upload(self, port: str) -> bool:
-        """Prepare port for upload by closing users and waiting"""
+        """为上传准备串口：关闭占用进程并等待可用"""
         logger.info(f"Preparing {port} for upload...")
         
-        # Close any processes using the port
+        # 关闭占用该串口的进程
         self.close_port_users(port)
         
-        # Wait for port to be available
+        # 等待串口可用
         if self.wait_for_port_available(port, timeout=5):
             logger.info(f"{port} is ready for upload")
             return True
@@ -122,11 +122,11 @@ class PortManager:
             return False
     
     def reset_port(self, port: str) -> bool:
-        """Reset the serial port"""
+        """重置串口"""
         import serial
         try:
             logger.debug(f"Resetting port {port}")
-            # Open and close to reset
+            # 打开再关闭以实现复位
             ser = serial.Serial(port, 1200, timeout=0.1)
             ser.setDTR(False)
             time.sleep(0.1)

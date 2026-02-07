@@ -1,4 +1,4 @@
-"""Arduino MCP Server - Main entry point"""
+"""Arduino MCP Server - 主入口"""
 
 import re
 import logging
@@ -12,21 +12,21 @@ from .models import ProjectConfig, Component
 from .arduino_cli import ArduinoCLI
 from .code_generator import CodeGenerator
 
-# Configure logging to stderr (MCP uses stdout for JSON-RPC)
+# 日志输出到 stderr（MCP 使用 stdout 做 JSON-RPC）
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler()]  # Defaults to stderr
+    handlers=[logging.StreamHandler()]  # 默认写到 stderr
 )
 logger = logging.getLogger(__name__)
 
-# Initialize server (lazily initialized)
+# 服务器与 ArduinoCLI 惰性初始化
 app = Server("arduino-mcp-server")
 _arduino_cli = None
 
 
 def get_arduino_cli() -> ArduinoCLI:
-    """Get or create ArduinoCLI instance (lazy initialization)"""
+    """获取或创建 ArduinoCLI 实例（惰性初始化）"""
     global _arduino_cli
     if _arduino_cli is None:
         _arduino_cli = ArduinoCLI()
@@ -34,13 +34,13 @@ def get_arduino_cli() -> ArduinoCLI:
 
 
 def parse_led_blink_intent(user_input: str) -> ProjectConfig:
-    """Parse user intent for LED blink project with enhanced pattern matching"""
+    """从用户输入解析 LED 闪烁项目意图（增强正则匹配）"""
     config = ProjectConfig()
     user_lower = user_input.lower()
     
     logger.debug(f"Parsing intent from: {user_input}")
     
-    # Extract board type (enhanced patterns)
+    # 解析板卡类型
     if re.search(r'\buno\b', user_lower):
         config.board_fqbn = "arduino:avr:uno"
         logger.info("Detected board: Arduino Uno")
@@ -56,8 +56,8 @@ def parse_led_blink_intent(user_input: str) -> ProjectConfig:
     else:
         logger.warning("No board type detected, using default: Arduino Uno")
     
-    # Extract pin number (enhanced patterns)
-    # Supports: "13号引脚", "引脚13", "13 号引脚", "pin 13", "GPIO 13", "D13"
+    # 解析引脚号（支持多种表述）
+    # 如："13号引脚", "引脚13", "pin 13", "GPIO 13", "D13"
     pin_patterns = [
         r'(\d+)\s*号?\s*引脚',  # 13号引脚, 13 号引脚
         r'引脚\s*(\d+)',        # 引脚13
@@ -67,7 +67,7 @@ def parse_led_blink_intent(user_input: str) -> ProjectConfig:
         r'p(\d+)',              # P13
     ]
     
-    pin = 13  # Default
+    pin = 13  # 默认
     for pattern in pin_patterns:
         pin_match = re.search(pattern, user_lower)
         if pin_match:
@@ -77,16 +77,16 @@ def parse_led_blink_intent(user_input: str) -> ProjectConfig:
     else:
         logger.info(f"No pin specified, using default: {pin}")
     
-    # Validate pin range
+    # 校验引脚范围
     if pin < 0 or pin > 50:
         logger.warning(f"Pin {pin} out of typical range (0-50), using default 13")
         pin = 13
     
-    # Extract interval (enhanced patterns)
-    # Supports: "每2秒", "2秒", "2s", "2000ms", "2000毫秒", "every 2 seconds"
-    interval = 1000  # Default 1 second
+    # 解析间隔（支持秒/毫秒）
+    # 如："每2秒", "2s", "2000ms", "2000毫秒", "every 2 seconds"
+    interval = 1000  # 默认 1 秒
     
-    # Try milliseconds first
+    # 先尝试毫秒
     ms_patterns = [
         r'(\d+)\s*ms\b',
         r'(\d+)\s*毫秒',
@@ -99,7 +99,7 @@ def parse_led_blink_intent(user_input: str) -> ProjectConfig:
             logger.info(f"Detected interval: {interval}ms")
             break
     else:
-        # Try seconds
+        # 再尝试秒
         sec_patterns = [
             r'每\s*(\d+\.?\d*)\s*秒',
             r'(\d+\.?\d*)\s*秒',
@@ -116,12 +116,12 @@ def parse_led_blink_intent(user_input: str) -> ProjectConfig:
         else:
             logger.info(f"No interval specified, using default: {interval}ms")
     
-    # Validate interval range
+    # 校验间隔范围
     if interval < 10 or interval > 60000:
         logger.warning(f"Interval {interval}ms out of reasonable range (10-60000ms), using default 1000ms")
         interval = 1000
     
-    # Add LED component
+    # 添加 LED 组件
     config.components.append(Component(
         type="led",
         name="LED",
@@ -136,7 +136,7 @@ def parse_led_blink_intent(user_input: str) -> ProjectConfig:
 
 @app.list_tools()
 async def list_tools() -> list[Tool]:
-    """List available MCP tools"""
+    """列出可用的 MCP 工具"""
     return [
         Tool(
             name="check_arduino_cli",
@@ -283,7 +283,7 @@ async def list_tools() -> list[Tool]:
 
 @app.call_tool()
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
-    """Handle tool calls"""
+    """处理 MCP 工具调用"""
     arduino_cli = get_arduino_cli()
     logger.info(f"Tool called: {name}")
     
@@ -306,7 +306,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         verify_connection = arguments.get("verify_connection", True)
         board_type = arguments.get("board_type")
         
-        # If specific board type requested
+        # 指定了板卡类型时按类型检测
         if board_type:
             board = arduino_cli.detect_board_by_type(board_type)
             if not board:
@@ -331,7 +331,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             
             return [TextContent(type="text", text=result)]
         
-        # General board detection
+        # 通用板卡检测
         boards = arduino_cli.detect_boards(verify_connection=verify_connection)
         if not boards:
             return [TextContent(
@@ -465,7 +465,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         
         output = "🚀 Starting full LED blink workflow...\n\n"
         
-        # Step 1: Parse and generate (with Wokwi)
+        # 步骤 1：解析意图并生成代码（含 Wokwi）
         output += "Step 1: Parsing intent and generating code...\n"
         config = parse_led_blink_intent(user_input)
         generator = CodeGenerator(Path("./arduino_projects"))
@@ -477,7 +477,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         output += f"   📍 LED Pin: {led.pin}\n"
         output += f"   ⏱️  Interval: {config.blink_interval}ms\n\n"
         
-        # Show Wokwi simulation option
+        # 提示 Wokwi 仿真选项
         output += "🎮 Wokwi Simulation Files Generated:\n"
         output += f"   • diagram.json (circuit diagram)\n"
         output += f"   • wokwi.toml (configuration)\n\n"
@@ -489,7 +489,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         output += "   2. [直接上传到硬件] - 如果已经接好线\n\n"
         output += "💡 推荐：先在 Wokwi 中仿真，确认接线正确后再上传硬件！\n\n"
         
-        # Step 2: Compile
+        # 步骤 2：编译
         output += "Step 2: Compiling...\n"
         compile_result = arduino_cli.compile_sketch(sketch_dir, config.board_fqbn)
         if not compile_result.success:
@@ -497,11 +497,11 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             return [TextContent(type="text", text=output)]
         output += "✅ Compilation successful\n\n"
         
-        # Step 3: Upload (if auto_upload is True)
+        # 步骤 3：上传（若开启 auto_upload）
         if auto_upload:
             output += "Step 3: Detecting board and uploading...\n"
             
-            # Try to detect specific board type from config
+            # 根据配置尝试检测对应板卡类型
             board_type = None
             if "pico" in config.board_fqbn.lower():
                 board_type = "pico"
@@ -510,7 +510,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             elif "nano" in config.board_fqbn.lower():
                 board_type = "nano"
             
-            # Detect with verification
+            # 带验证的板卡检测
             if board_type:
                 output += f"Looking for {board_type} board...\n"
                 board = arduino_cli.detect_board_by_type(board_type)
@@ -548,7 +548,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 return [TextContent(type="text", text=output)]
             output += f"✅ Upload successful to {upload_result.port}\n\n"
             
-            # Step 4: Monitor
+            # 步骤 4：串口监控
             if monitor_after:
                 output += "Step 4: Monitoring serial output...\n"
                 lines = arduino_cli.monitor_serial(upload_result.port, config.serial_baud, 5)
@@ -571,7 +571,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 
 
 def main():
-    """Main entry point"""
+    """程序主入口"""
     import asyncio
     from mcp.server.stdio import stdio_server
     

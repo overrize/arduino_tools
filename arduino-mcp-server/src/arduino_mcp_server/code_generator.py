@@ -114,15 +114,15 @@ class CodeGenerator:
         logger.info(f"Wokwi simulation files generated: {diagram_path}, {toml_path}")
     
     def generate_button_led(self, config: ProjectConfig, project_name: str) -> Path:
-        """Generate button-controlled LED sketch"""
-        # Find components
+        """生成按钮控制 LED 的工程"""
+        # 查找组件
         button = next((c for c in config.components if c.type == "button"), None)
         led = next((c for c in config.components if c.type == "led"), None)
         
         if not button or not led:
-            raise ValueError("Button and LED components required")
+            raise ValueError("需要按钮和 LED 组件")
         
-        # Prepare template context
+        # 准备模板上下文
         context = {
             "board_fqbn": config.board_fqbn,
             "button_pin": button.pin,
@@ -131,15 +131,15 @@ class CodeGenerator:
             "serial_baud": config.serial_baud,
         }
         
-        # Render template
+        # 渲染模板
         template = Template(get_template("button_led"))
         code = template.render(**context)
         
-        # Create project directory structure
+        # 创建项目目录结构
         project_dir = self.output_dir / project_name
         project_dir.mkdir(exist_ok=True)
         
-        # Create subdirectories
+        # 创建子目录
         docs_dir = project_dir / "docs"
         docs_dir.mkdir(exist_ok=True)
         
@@ -149,7 +149,7 @@ class CodeGenerator:
         build_dir = project_dir / "build"
         build_dir.mkdir(exist_ok=True)
         
-        # Write .ino file in project root
+        # 在项目根目录写入 .ino 文件
         sketch_file = project_dir / f"{project_name}.ino"
         sketch_file.write_text(code, encoding="utf-8")
         

@@ -1,4 +1,4 @@
-"""Arduino CLI wrapper"""
+"""Arduino CLI 封装"""
 
 import subprocess
 import json
@@ -13,27 +13,27 @@ logger = logging.getLogger(__name__)
 
 
 class ArduinoCLI:
-    """Wrapper for arduino-cli commands"""
+    """arduino-cli 命令封装"""
     
     def __init__(self, cli_path=None):
-        # Try to find arduino-cli from environment variable or common locations
+        # 优先从环境变量或常见路径查找 arduino-cli
         if cli_path:
             self.cli_path = cli_path
         else:
-            # Check environment variable first
+            # 先检查环境变量
             env_path = os.environ.get('ARDUINO_CLI_PATH')
             if env_path and Path(env_path).exists():
                 self.cli_path = env_path
                 logger.info(f"Using arduino-cli from ARDUINO_CLI_PATH: {env_path}")
             else:
-                # Try common locations
+                # 尝试常见安装路径
                 possible_paths = [
-                    "arduino-cli",  # In PATH
+                    "arduino-cli",  # PATH 中
                     os.path.expandvars("%LOCALAPPDATA%\\Arduino15\\arduino-cli.exe"),
                     "C:\\Program Files\\Arduino CLI\\arduino-cli.exe",
                 ]
                 
-                self.cli_path = "arduino-cli"  # Default
+                self.cli_path = "arduino-cli"  # 默认
                 for path in possible_paths:
                     try:
                         result = subprocess.run(
@@ -48,16 +48,16 @@ class ArduinoCLI:
                     except:
                         continue
         
-        # Initialize port manager
+        # 初始化串口管理器
         self.port_manager = PortManager()
         
-        # Verify installation on init
+        # 初始化时验证安装
         if not self.check_installation():
             logger.warning("arduino-cli not found or not working properly")
             logger.info("Please install from: https://arduino.github.io/arduino-cli/")
     
     def check_installation(self) -> bool:
-        """Check if arduino-cli is installed"""
+        """检查 arduino-cli 是否已安装"""
         try:
             result = subprocess.run(
                 [self.cli_path, "version"],
@@ -74,13 +74,13 @@ class ArduinoCLI:
             return False
     
     def install_library(self, library_name: str) -> bool:
-        """Install Arduino library
+        """安装 Arduino 库
         
         Args:
-            library_name: Name of the library to install
+            library_name: 要安装的库名称
         
         Returns:
-            True if installation successful, False otherwise
+            安装成功返回 True，否则返回 False
         """
         try:
             logger.info(f"Installing library: {library_name}")
@@ -105,13 +105,13 @@ class ArduinoCLI:
             return False
     
     def search_library(self, query: str) -> List[dict]:
-        """Search for Arduino libraries
+        """搜索 Arduino 库
         
         Args:
-            query: Search query
+            query: 搜索关键词
         
         Returns:
-            List of library information dictionaries
+            库信息字典列表
         """
         try:
             result = subprocess.run(
@@ -133,10 +133,10 @@ class ArduinoCLI:
             return []
     
     def detect_boards(self, verify_connection: bool = True) -> List[BoardInfo]:
-        """Detect connected Arduino boards
+        """检测已连接的 Arduino 板卡
         
         Args:
-            verify_connection: If True, verify that detected ports are actually accessible
+            verify_connection: 为 True 时验证检测到的串口是否实际可访问
         """
         try:
             logger.debug("Detecting Arduino boards...")
@@ -154,14 +154,14 @@ class ArduinoCLI:
             data = json.loads(result.stdout)
             boards = []
             
-            # Handle new JSON format (arduino-cli 1.x)
+            # 处理新 JSON 格式 (arduino-cli 1.x)
             if "detected_ports" in data:
                 for item in data["detected_ports"]:
                     port_info = item.get("port", {})
                     port = port_info.get("address", "")
                     protocol = port_info.get("protocol", "")
                     
-                    # Get hardware IDs for verification
+                    # 获取硬件 ID 用于验证
                     properties = port_info.get("properties", {})
                     vid = properties.get("vid", "")
                     pid = properties.get("pid", "")
@@ -169,11 +169,11 @@ class ArduinoCLI:
                     
                     matching_boards = item.get("matching_boards", [])
                     
-                    # Only include serial ports (not network)
+                    # 仅包含串口（不含网络）
                     if protocol != "serial":
                         continue
                     
-                    # Only include boards that arduino-cli actually recognized
+                    # 仅包含 arduino-cli 实际识别到的板卡
                     if matching_boards:
                         board = matching_boards[0]
                         board_info = BoardInfo(
@@ -182,7 +182,7 @@ class ArduinoCLI:
                             name=board.get("name")
                         )
                         
-                        # Verify connection if requested
+                        # 如需则验证连接
                         if verify_connection:
                             if self._verify_board_connection(port, vid, pid):
                                 boards.append(board_info)
@@ -191,14 +191,14 @@ class ArduinoCLI:
                                 logger.warning(f"Port {port} detected but not accessible (may be in use)")
                         else:
                             boards.append(board_info)
-                    # Skip ports without matching_boards - they're not Arduino devices
-            # Handle old JSON format (arduino-cli 0.x)
+                    # 跳过无匹配板卡的端口（非 Arduino 设备）
+            # 处理旧 JSON 格式 (arduino-cli 0.x)
             else:
                 for item in data:
                     port = item.get("address", "")
                     matching_boards = item.get("matching_boards", [])
                     
-                    # Only include recognized Arduino boards
+                    # 仅包含已识别的 Arduino 板卡
                     if matching_boards:
                         board = matching_boards[0]
                         board_info = BoardInfo(
@@ -212,7 +212,7 @@ class ArduinoCLI:
                                 boards.append(board_info)
                         else:
                             boards.append(board_info)
-                    # Skip ports without matching_boards
+                    # 跳过无匹配板卡的端口
             
             logger.info(f"Found {len(boards)} board(s)")
             return boards
@@ -224,25 +224,25 @@ class ArduinoCLI:
             return []
     
     def _verify_board_connection(self, port: str, vid: str = "", pid: str = "") -> bool:
-        """Verify that a board is actually connected and accessible
+        """验证板卡是否实际连接且可访问
         
         Args:
-            port: Serial port to verify
-            vid: Vendor ID (optional, for additional verification)
-            pid: Product ID (optional, for additional verification)
+            port: 要验证的串口
+            vid: 厂商 ID（可选，用于额外验证）
+            pid: 产品 ID（可选，用于额外验证）
         
         Returns:
-            True if board is accessible, False otherwise
+            板卡可访问返回 True，否则返回 False
         """
         try:
             import serial
-            # Try to open the port briefly
+            # 短暂尝试打开串口
             ser = serial.Serial(port, 9600, timeout=0.5)
             ser.close()
             logger.debug(f"Port {port} is accessible")
             return True
         except serial.SerialException as e:
-            # Port exists but can't be opened (may be in use or disconnected)
+            # 串口存在但无法打开（可能被占用或已断开）
             logger.debug(f"Port {port} not accessible: {e}")
             return False
         except Exception as e:
@@ -250,19 +250,19 @@ class ArduinoCLI:
             return False
     
     def detect_board_by_type(self, board_type: str) -> Optional[BoardInfo]:
-        """Detect a specific type of board (e.g., 'pico', 'uno', 'nano')
+        """按类型检测板卡（如 'pico', 'uno', 'nano'）
         
         Args:
-            board_type: Type of board to detect (case-insensitive)
+            board_type: 要检测的板卡类型（不区分大小写）
         
         Returns:
-            BoardInfo if found, None otherwise
+            找到返回 BoardInfo，否则返回 None
         """
         logger.debug(f"Looking for {board_type} board...")
         boards = self.detect_boards(verify_connection=True)
         board_type_lower = board_type.lower()
         
-        # Try to match by name or FQBN
+        # 按名称或 FQBN 匹配
         for board in boards:
             if board.name and board_type_lower in board.name.lower():
                 logger.info(f"Found {board_type}: {board.name} at {board.port}")
@@ -271,38 +271,38 @@ class ArduinoCLI:
                 logger.info(f"Found {board_type}: {board.fqbn} at {board.port}")
                 return board
         
-        # No match found
+        # 未找到匹配
         logger.warning(f"No {board_type} board found")
         return None
     
     def compile_sketch(self, sketch_path: Path, fqbn: str, build_path: Optional[Path] = None) -> CompileResult:
-        """Compile Arduino sketch
+        """编译 Arduino 工程
         
         Args:
-            sketch_path: Path to sketch file (.ino) or directory containing it
-            fqbn: Board FQBN
-            build_path: Optional build output directory (default: sketch_dir/build)
+            sketch_path: 工程文件 (.ino) 路径或所在目录
+            fqbn: 板卡 FQBN
+            build_path: 可选，编译输出目录（默认 sketch_dir/build）
         
         Returns:
-            CompileResult with build_path set
+            带 build_path 的 CompileResult
         """
         try:
-            # If sketch_path is a .ino file, get its parent directory
+            # 若传入的是 .ino 文件，取其所在目录
             if sketch_path.is_file():
                 sketch_dir = sketch_path.parent
             else:
                 sketch_dir = sketch_path
             
-            # Set build path to sketch_dir/build if not specified
+            # 未指定时使用 sketch_dir/build
             if build_path is None:
                 build_path = sketch_dir / "build"
             
-            # Create build directory
+            # 创建编译目录
             build_path.mkdir(parents=True, exist_ok=True)
             
             logger.info(f"Compiling sketch: {sketch_dir} for {fqbn}")
             
-            # Compile with specified build path
+            # 使用指定 build 路径编译
             result = subprocess.run(
                 [
                     self.cli_path, "compile", 
@@ -325,7 +325,7 @@ class ArduinoCLI:
             
             errors = []
             if not success:
-                # Parse error messages
+                # 解析错误信息
                 for line in output.split('\n'):
                     if 'error:' in line.lower():
                         errors.append(line.strip())
@@ -359,9 +359,9 @@ class ArduinoCLI:
         port: Optional[str] = None,
         auto_close_port: bool = True
     ) -> UploadResult:
-        """Upload compiled sketch to board"""
+        """将编译好的工程上传到板卡"""
         try:
-            # Auto-detect port if not provided
+            # 未指定端口时自动检测
             if not port:
                 logger.debug("Auto-detecting board for upload...")
                 boards = self.detect_boards()
@@ -375,7 +375,7 @@ class ArduinoCLI:
                 port = boards[0].port
                 logger.info(f"Using auto-detected port: {port}")
             
-            # Prepare port for upload (close any users)
+            # 上传前准备串口（关闭占用进程）
             if auto_close_port:
                 logger.info(f"Preparing {port} for upload...")
                 if not self.port_manager.prepare_port_for_upload(port):
@@ -436,7 +436,7 @@ class ArduinoCLI:
         baud_rate: int = 9600, 
         duration: int = 10
     ) -> List[str]:
-        """Monitor serial output for specified duration"""
+        """在指定时长内监控串口输出"""
         try:
             logger.info(f"Monitoring serial port {port} at {baud_rate} baud for {duration}s")
             cmd = [
@@ -457,7 +457,7 @@ class ArduinoCLI:
             logger.debug(f"Captured {len(filtered_lines)} lines from serial")
             return filtered_lines
         except subprocess.TimeoutExpired as e:
-            # Timeout is expected for monitoring
+            # 监控超时是预期行为
             logger.debug("Serial monitoring timeout (expected)")
             output = e.stdout.decode() if e.stdout else ""
             lines = output.split('\n')
