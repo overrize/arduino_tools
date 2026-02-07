@@ -38,8 +38,11 @@ jobs:
       - name: Install arduino-cli
         run: |
           curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
+          # 安装路径可能是 $HOME/bin 或 ./bin，都加入 PATH
+          ARDUINO_BIN="${{ github.workspace }}/arduino-mcp-server/bin"
+          echo "$ARDUINO_BIN" >> $GITHUB_PATH
           echo "$HOME/bin" >> $GITHUB_PATH
-          export PATH="$HOME/bin:$PATH"
+          export PATH="$ARDUINO_BIN:$HOME/bin:$PATH"
           arduino-cli version
 
       - name: Install Arduino cores
