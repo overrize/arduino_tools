@@ -1,13 +1,13 @@
-# Arduino Client - 添加 Scripts 目录到 PATH
-# 此脚本会将 arduino-client.exe 所在目录添加到用户 PATH 环境变量
+# Arduino Client - Add Scripts directory to PATH
+# This script adds the arduino-client.exe directory to user PATH environment variable
 
-Write-Host "正在查找 arduino-client.exe 安装位置..." -ForegroundColor Cyan
+Write-Host "Finding arduino-client.exe installation location..." -ForegroundColor Cyan
 
-# 查找 arduino-client.exe
+# Find arduino-client.exe
 $arduinoClientPath = Get-Command arduino-client -ErrorAction SilentlyContinue
 
 if (-not $arduinoClientPath) {
-    # 尝试从 pip 获取安装位置
+    # Try to get installation location from pip
     $pipShow = python -m pip show arduino-client 2>$null
     if ($pipShow) {
         $locationLine = $pipShow | Select-String -Pattern "Location:"
@@ -18,7 +18,7 @@ if (-not $arduinoClientPath) {
         }
     }
     
-    # 如果还是找不到，尝试常见位置
+    # If still not found, try common locations
     if (-not $scriptsPath) {
         $userProfile = $env:USERPROFILE
         $possiblePaths = @(
@@ -40,30 +40,31 @@ if (-not $arduinoClientPath) {
 }
 
 if (-not $scriptsPath -or -not (Test-Path $scriptsPath)) {
-    Write-Host "错误：无法找到 arduino-client.exe 安装位置" -ForegroundColor Red
-    Write-Host "请手动运行: python -m arduino_client setup" -ForegroundColor Yellow
+    Write-Host "Error: Cannot find arduino-client.exe installation location" -ForegroundColor Red
+    Write-Host "Please run manually: python -m arduino_client setup" -ForegroundColor Yellow
     exit 1
 }
 
-Write-Host "找到 Scripts 目录: $scriptsPath" -ForegroundColor Green
+Write-Host "Found Scripts directory: $scriptsPath" -ForegroundColor Green
 
-# 检查是否已在 PATH 中
+# Check if already in PATH
 $currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
-if ($currentPath -split ';' -contains $scriptsPath) {
-    Write-Host "Scripts 目录已在 PATH 中" -ForegroundColor Green
-    Write-Host "可以直接使用: arduino-client setup" -ForegroundColor Cyan
+$pathArray = $currentPath -split ';'
+if ($pathArray -contains $scriptsPath) {
+    Write-Host "Scripts directory is already in PATH" -ForegroundColor Green
+    Write-Host "You can use: arduino-client setup" -ForegroundColor Cyan
     exit 0
 }
 
-# 添加到 PATH
-Write-Host "正在添加到用户 PATH..." -ForegroundColor Cyan
+# Add to PATH
+Write-Host "Adding to user PATH..." -ForegroundColor Cyan
 $newPath = $currentPath + ";" + $scriptsPath
 [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
 
-Write-Host "✓ 已添加到用户 PATH" -ForegroundColor Green
+Write-Host "Successfully added to user PATH" -ForegroundColor Green
 Write-Host ""
-Write-Host "注意：需要重新打开 PowerShell 窗口才能生效" -ForegroundColor Yellow
-Write-Host "或者运行以下命令刷新当前会话：" -ForegroundColor Yellow
-Write-Host "  `$env:Path = [System.Environment]::GetEnvironmentVariable('Path','User') + ';' + [System.Environment]::GetEnvironmentVariable('Path','Machine')" -ForegroundColor Cyan
+Write-Host "Note: You need to reopen PowerShell window for changes to take effect" -ForegroundColor Yellow
+Write-Host "Or run this command to refresh current session:" -ForegroundColor Yellow
+Write-Host '  $env:Path = [System.Environment]::GetEnvironmentVariable("Path","User") + ";" + [System.Environment]::GetEnvironmentVariable("Path","Machine")' -ForegroundColor Cyan
 Write-Host ""
-Write-Host "然后可以运行: arduino-client setup" -ForegroundColor Cyan
+Write-Host "Then you can run: arduino-client setup" -ForegroundColor Cyan
