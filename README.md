@@ -80,20 +80,29 @@
 ### 方式一：独立 Client 工具（推荐）⭐
 
 ```bash
-cd arduino-client
-pip install -e .
-cp .env.example .env
-# 编辑 .env，填入 OPENAI_API_KEY=sk-xxx
+# 1. 在项目根目录安装（无需进入子目录）
+pip install -e arduino-client/
 
-# 生成代码并编译上传
-python -m arduino_client gen "用 Arduino Uno 做一个 LED 闪烁，13 号引脚" blink_demo --build --flash
+# 2. 运行交互式配置向导（首次使用推荐）
+arduino-client setup
+# 向导会引导你选择 API 提供商并输入 API Key
+
+# 3. 开始使用
+arduino-client gen "用 Arduino Uno 做一个 LED 闪烁，13 号引脚" blink_demo --build --flash
 ```
 
 **特点**：
 - ✅ 独立工具，不依赖 kiro
 - ✅ 使用 LLM API 生成代码（更灵活）
 - ✅ 支持 CLI 和 Python API 两种方式
+- ✅ 交互式配置向导，无需手动创建配置文件
 - ✅ 参考 STloop 架构设计
+- ✅ 可选终端 UI 支持（安装 `arduino-client[ui]` 获得更好体验）
+
+**提示**：
+- 安装后首次运行任何命令时，如果未配置会提示运行 `arduino-client setup`
+- 配置向导支持 Kimi K2、OpenAI 和其他兼容 API
+- 配置可保存到当前目录（项目级）或用户主目录（全局）
 
 详见：[arduino-client/README.md](arduino-client/README.md)
 
