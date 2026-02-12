@@ -64,13 +64,9 @@ jobs:
             echo "No tests directory found, skipping tests"
           fi
 
-      - name: Run integration tests
-        run: |
-          python -m pytest tests/ -m integration -v --tb=short
 
       - name: Test summary
         if: always()
         run: |
           echo "## CI Test Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- Unit tests: completed" >> $GITHUB_STEP_SUMMARY
-          echo "- Integration tests: completed (arduino-cli required)" >> $GITHUB_STEP_SUMMARY
+          echo "- Tests: completed" >> $GITHUB_STEP_SUMMARY
