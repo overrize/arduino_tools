@@ -2,6 +2,15 @@
 
 > 自然语言驱动的 Arduino 端到端开发工具
 
+## 📚 文档说明
+
+本项目包含两个 README 文件：
+
+- **`README.md`**（本文件）- 项目总览，介绍整个工具集（Client + MCP Server）
+- **`arduino-client/README.md`** - Client 工具的详细文档，包含完整的使用说明、API 文档等
+
+> 💡 **建议**：快速开始请查看本文件，深入了解 Client 工具请查看 `arduino-client/README.md`
+
 ## 🎯 项目概述
 
 这是一个创新的 Arduino 开发工具集，提供两种使用方式：
