@@ -40,6 +40,10 @@ arduino-client gen "用 Arduino Uno 做一个 LED 闪烁，13 号引脚" blink_d
 - 配置可保存到当前目录（项目级）或用户主目录（全局）
 - 安装 `rich` 库可获得更好的终端 UI 体验：`pip install arduino-client[ui]`
 
+**注意**：
+- 如果 `arduino-client` 命令找不到，可以使用 `python -m arduino_client` 替代
+- Windows Store 版本的 Python 可能需要将 Scripts 目录添加到 PATH，或使用 `python -m` 方式
+
 ### 方式二：进入目录安装（兼容旧方式）
 
 ```bash
