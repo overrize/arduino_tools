@@ -51,7 +51,21 @@ if (-not $scriptsPath -or -not (Test-Path $scriptsPath)) {
     exit 1
 }
 
+# Verify arduino-client.exe actually exists
+$arduinoClientExe = Join-Path $scriptsPath "arduino-client.exe"
+if (-not (Test-Path $arduinoClientExe)) {
+    Write-Host "Warning: arduino-client.exe not found in Scripts directory" -ForegroundColor Yellow
+    Write-Host "Scripts directory: $scriptsPath" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "Please reinstall arduino-client:" -ForegroundColor Yellow
+    Write-Host "  pip install -e arduino-client/ --force-reinstall" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "Or use: python -m arduino_client setup" -ForegroundColor Yellow
+    exit 1
+}
+
 Write-Host "Found Scripts directory: $scriptsPath" -ForegroundColor Green
+Write-Host "Found arduino-client.exe: $arduinoClientExe" -ForegroundColor Green
 
 # Check if already in PATH (user environment variable)
 $currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
@@ -91,9 +105,19 @@ Write-Host ""
 
 # Refresh current session PATH
 Write-Host "Refreshing current session PATH..." -ForegroundColor Cyan
-$env:Path = [System.Environment]::GetEnvironmentVariable("Path","User") + ";" + [System.Environment]::GetEnvironmentVariable("Path","Machine")
+$userPath = [System.Environment]::GetEnvironmentVariable("Path","User")
+$machinePath = [System.Environment]::GetEnvironmentVariable("Path","Machine")
+$env:Path = $userPath + ";" + $machinePath
+
+# Also explicitly add scriptsPath to current session if not already there
+$currentSessionPath = $env:Path -split ';'
+if ($currentSessionPath -notcontains $scriptsPath) {
+    $env:Path = $env:Path + ";" + $scriptsPath
+    Write-Host "Added to current session PATH: $scriptsPath" -ForegroundColor Cyan
+}
 
 # Verify arduino-client is now available
+Start-Sleep -Milliseconds 500  # Give PowerShell time to refresh command cache
 $arduinoClientCheck = Get-Command arduino-client -ErrorAction SilentlyContinue
 if ($arduinoClientCheck) {
     Write-Host "✓ arduino-client is now available!" -ForegroundColor Green
@@ -101,12 +125,24 @@ if ($arduinoClientCheck) {
     Write-Host "You can now run:" -ForegroundColor Cyan
     Write-Host "  arduino-client setup" -ForegroundColor Yellow
     Write-Host "  arduino-client --version" -ForegroundColor Yellow
+    Write-Host ""
+    # Test the command
+    Write-Host "Testing command..." -ForegroundColor Cyan
+    try {
+        $version = & arduino-client --version 2>&1
+        Write-Host "Command test result: $version" -ForegroundColor Green
+    } catch {
+        Write-Host "Command test failed: $_" -ForegroundColor Yellow
+    }
 } else {
-    Write-Host "⚠ Warning: arduino-client still not found in PATH" -ForegroundColor Yellow
-    Write-Host "Please verify the Scripts directory contains arduino-client.exe:" -ForegroundColor Yellow
-    Write-Host "  $scriptsPath" -ForegroundColor Cyan
+    Write-Host "⚠ Warning: arduino-client still not found after refreshing PATH" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Troubleshooting:" -ForegroundColor Yellow
+    Write-Host "  1. Verify file exists: Test-Path '$arduinoClientExe'" -ForegroundColor Cyan
+    Write-Host "  2. Current PATH contains Scripts: `$env:Path -split ';' | Select-String '$scriptsPath'" -ForegroundColor Cyan
+    Write-Host "  3. Try direct path: & '$arduinoClientExe' --version" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "If the file exists, try:" -ForegroundColor Yellow
-    Write-Host "  1. Close and reopen PowerShell window" -ForegroundColor Cyan
-    Write-Host "  2. Or run: `$env:Path = [System.Environment]::GetEnvironmentVariable('Path','User') + ';' + [System.Environment]::GetEnvironmentVariable('Path','Machine')" -ForegroundColor Cyan
+    Write-Host "  - Close and reopen PowerShell window" -ForegroundColor Cyan
+    Write-Host "  - Or use: python -m arduino_client setup" -ForegroundColor Cyan
 }
