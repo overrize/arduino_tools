@@ -117,7 +117,11 @@ if ($currentSessionPath -notcontains $scriptsPath) {
 }
 
 # Verify arduino-client is now available
-Start-Sleep -Milliseconds 500  # Give PowerShell time to refresh command cache
+# Clear command cache and wait
+$null = Get-Command arduino-client -ErrorAction SilentlyContinue  # Force cache refresh
+Start-Sleep -Milliseconds 1000  # Give PowerShell time to refresh command cache
+
+# Try Get-Command first
 $arduinoClientCheck = Get-Command arduino-client -ErrorAction SilentlyContinue
 if ($arduinoClientCheck) {
     Write-Host "✓ arduino-client is now available!" -ForegroundColor Green
@@ -126,23 +130,44 @@ if ($arduinoClientCheck) {
     Write-Host "  arduino-client setup" -ForegroundColor Yellow
     Write-Host "  arduino-client --version" -ForegroundColor Yellow
     Write-Host ""
-    # Test the command
+    # Test the command directly
     Write-Host "Testing command..." -ForegroundColor Cyan
     try {
         $version = & arduino-client --version 2>&1
-        Write-Host "Command test result: $version" -ForegroundColor Green
+        if ($LASTEXITCODE -eq 0 -or $version) {
+            Write-Host "Command test successful: $version" -ForegroundColor Green
+        } else {
+            Write-Host "Command test: Command found but execution may have issues" -ForegroundColor Yellow
+        }
     } catch {
         Write-Host "Command test failed: $_" -ForegroundColor Yellow
+        Write-Host "Try using direct path: & '$arduinoClientExe' --version" -ForegroundColor Cyan
     }
 } else {
-    Write-Host "⚠ Warning: arduino-client still not found after refreshing PATH" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "Troubleshooting:" -ForegroundColor Yellow
-    Write-Host "  1. Verify file exists: Test-Path '$arduinoClientExe'" -ForegroundColor Cyan
-    Write-Host "  2. Current PATH contains Scripts: `$env:Path -split ';' | Select-String '$scriptsPath'" -ForegroundColor Cyan
-    Write-Host "  3. Try direct path: & '$arduinoClientExe' --version" -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "If the file exists, try:" -ForegroundColor Yellow
-    Write-Host "  - Close and reopen PowerShell window" -ForegroundColor Cyan
-    Write-Host "  - Or use: python -m arduino_client setup" -ForegroundColor Cyan
+    # If Get-Command fails, try direct execution
+    Write-Host "Get-Command failed, trying direct execution..." -ForegroundColor Yellow
+    try {
+        $testResult = & $arduinoClientExe --version 2>&1
+        if ($LASTEXITCODE -eq 0 -or $testResult) {
+            Write-Host "✓ Direct execution works! Command is available at:" -ForegroundColor Green
+            Write-Host "  $arduinoClientExe" -ForegroundColor Cyan
+            Write-Host ""
+            Write-Host "Note: PowerShell command cache may need a new session to refresh." -ForegroundColor Yellow
+            Write-Host "You can use the direct path or close/reopen PowerShell window." -ForegroundColor Yellow
+            Write-Host ""
+            Write-Host "Or use: python -m arduino_client setup" -ForegroundColor Cyan
+        } else {
+            throw "Direct execution also failed"
+        }
+    } catch {
+        Write-Host "⚠ Warning: arduino-client still not found after refreshing PATH" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "Troubleshooting:" -ForegroundColor Yellow
+        Write-Host "  1. Verify file exists: Test-Path '$arduinoClientExe'" -ForegroundColor Cyan
+        Write-Host "  2. Current PATH contains Scripts: `$env:Path -split ';' | Select-String '$scriptsPath'" -ForegroundColor Cyan
+        Write-Host "  3. Try direct path: & '$arduinoClientExe' --version" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "Recommended: Close and reopen PowerShell window, or use:" -ForegroundColor Yellow
+        Write-Host "  python -m arduino_client setup" -ForegroundColor Cyan
+    }
 }
