@@ -43,6 +43,7 @@ arduino-client gen "用 Arduino Uno 做一个 LED 闪烁，13 号引脚" blink_d
 **注意**：
 - 如果 `arduino-client` 命令找不到，可以使用 `python -m arduino_client` 替代
 - Windows Store 版本的 Python 可能需要将 Scripts 目录添加到 PATH，或使用 `python -m` 方式
+- 如果 `python -m arduino_client` 也失败，请确保已重新安装包：`pip install -e arduino-client/ --force-reinstall`
 
 ### 方式二：进入目录安装（兼容旧方式）
 
