@@ -104,6 +104,18 @@ arduino-client gen "用 Arduino Uno 做一个 LED 闪烁，13 号引脚" blink_d
 - 配置向导支持 Kimi K2、OpenAI 和其他兼容 API
 - 配置可保存到当前目录（项目级）或用户主目录（全局）
 
+**如果 `arduino-client` 命令找不到**：
+- 方案一（推荐）：使用 `python -m arduino_client setup` 替代
+- 方案二：运行辅助脚本自动添加 PATH：
+  ```powershell
+  # PowerShell 方式
+  .\arduino-client\scripts\add_to_path.ps1
+  
+  # 或 Windows Batch 方式
+  .\arduino-client\scripts\add_to_path.bat
+  ```
+  脚本会自动查找 `arduino-client.exe` 的安装位置并添加到用户 PATH。添加后需要**重新打开终端窗口**才能生效。
+
 详见：[arduino-client/README.md](arduino-client/README.md)
 
 ### 方式二：MCP Server（需要 kiro）
