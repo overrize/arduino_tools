@@ -69,8 +69,25 @@ $newPath = $currentPath + ";" + $scriptsPath
 
 Write-Host "Successfully added to user PATH" -ForegroundColor Green
 Write-Host ""
-Write-Host "Note: You need to reopen PowerShell window for changes to take effect" -ForegroundColor Yellow
-Write-Host "Or run this command to refresh current session:" -ForegroundColor Yellow
-Write-Host '  $env:Path = [System.Environment]::GetEnvironmentVariable("Path","User") + ";" + [System.Environment]::GetEnvironmentVariable("Path","Machine")' -ForegroundColor Cyan
-Write-Host ""
-Write-Host "Then you can run: arduino-client setup" -ForegroundColor Cyan
+
+# Refresh current session PATH
+Write-Host "Refreshing current session PATH..." -ForegroundColor Cyan
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path","User") + ";" + [System.Environment]::GetEnvironmentVariable("Path","Machine")
+
+# Verify arduino-client is now available
+$arduinoClientCheck = Get-Command arduino-client -ErrorAction SilentlyContinue
+if ($arduinoClientCheck) {
+    Write-Host "✓ arduino-client is now available!" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "You can now run:" -ForegroundColor Cyan
+    Write-Host "  arduino-client setup" -ForegroundColor Yellow
+    Write-Host "  arduino-client --version" -ForegroundColor Yellow
+} else {
+    Write-Host "⚠ Warning: arduino-client still not found in PATH" -ForegroundColor Yellow
+    Write-Host "Please verify the Scripts directory contains arduino-client.exe:" -ForegroundColor Yellow
+    Write-Host "  $scriptsPath" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "If the file exists, try:" -ForegroundColor Yellow
+    Write-Host "  1. Close and reopen PowerShell window" -ForegroundColor Cyan
+    Write-Host "  2. Or run: `$env:Path = [System.Environment]::GetEnvironmentVariable('Path','User') + ';' + [System.Environment]::GetEnvironmentVariable('Path','Machine')" -ForegroundColor Cyan
+}

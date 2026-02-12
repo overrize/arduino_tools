@@ -134,10 +134,7 @@ arduino-client gen "用 Arduino Uno 做一个 LED 闪烁，13 号引脚" blink_d
   .\arduino-client\scripts\add_to_path.bat
   ```
 
-  脚本会自动查找 `arduino-client.exe` 的安装位置并添加到用户 PATH。添加后需要**重新打开终端窗口**才能生效，或运行：
-  ```powershell
-  $env:Path = [System.Environment]::GetEnvironmentVariable("Path","User") + ";" + [System.Environment]::GetEnvironmentVariable("Path","Machine")
-  ```
+  脚本会自动查找 `arduino-client.exe` 的安装位置并添加到用户 PATH，**并自动刷新当前会话的 PATH**（无需重新打开终端）。如果脚本显示 "✓ arduino-client is now available!"，就可以直接使用 `arduino-client` 命令了。
 
 详见：[arduino-client/README.md](arduino-client/README.md)
 

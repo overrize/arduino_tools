@@ -76,15 +76,13 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 - 自动查找 `arduino-client.exe` 的安装位置
 - 检查是否已在 PATH 中（避免重复添加）
 - 自动添加到用户 PATH 环境变量
-- 提供刷新 PATH 的命令
+- **自动刷新当前会话的 PATH**（无需重新打开终端）
 
-**添加后**：
-- 需要**重新打开终端窗口**才能生效
-- 或者运行以下命令刷新当前会话：
-  ```powershell
-  $env:Path = [System.Environment]::GetEnvironmentVariable("Path","User") + ";" + [System.Environment]::GetEnvironmentVariable("Path","Machine")
-  ```
-- 然后可以使用 `arduino-client` 命令
+**运行后**：
+- 脚本会自动刷新当前 PowerShell 会话的 PATH
+- 如果成功，会显示 "✓ arduino-client is now available!"
+- 可以直接运行 `arduino-client setup` 或 `arduino-client --version`
+- 如果仍然找不到，请关闭并重新打开 PowerShell 窗口
 
 ### 方式二：进入目录安装（兼容旧方式）
 
