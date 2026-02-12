@@ -53,12 +53,31 @@ if (-not $scriptsPath -or -not (Test-Path $scriptsPath)) {
 
 Write-Host "Found Scripts directory: $scriptsPath" -ForegroundColor Green
 
-# Check if already in PATH
+# Check if already in PATH (user environment variable)
 $currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
 $pathArray = $currentPath -split ';'
 if ($pathArray -contains $scriptsPath) {
-    Write-Host "Scripts directory is already in PATH" -ForegroundColor Green
-    Write-Host "You can use: arduino-client setup" -ForegroundColor Cyan
+    Write-Host "Scripts directory is already in user PATH" -ForegroundColor Green
+    
+    # Even if in user PATH, refresh current session PATH
+    Write-Host "Refreshing current session PATH..." -ForegroundColor Cyan
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","User") + ";" + [System.Environment]::GetEnvironmentVariable("Path","Machine")
+    
+    # Verify arduino-client is now available
+    $arduinoClientCheck = Get-Command arduino-client -ErrorAction SilentlyContinue
+    if ($arduinoClientCheck) {
+        Write-Host "✓ arduino-client is now available!" -ForegroundColor Green
+        Write-Host ""
+        Write-Host "You can now run:" -ForegroundColor Cyan
+        Write-Host "  arduino-client setup" -ForegroundColor Yellow
+        Write-Host "  arduino-client --version" -ForegroundColor Yellow
+    } else {
+        Write-Host "⚠ Warning: arduino-client still not found after refreshing PATH" -ForegroundColor Yellow
+        Write-Host "Please verify the Scripts directory contains arduino-client.exe:" -ForegroundColor Yellow
+        Write-Host "  $scriptsPath" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "If the file exists, try closing and reopening PowerShell window" -ForegroundColor Yellow
+    }
     exit 0
 }
 
