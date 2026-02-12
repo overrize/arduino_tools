@@ -1,5 +1,11 @@
 # Arduino Client - Add Scripts directory to PATH
 # This script adds the arduino-client.exe directory to user PATH environment variable
+#
+# Usage:
+#   powershell -ExecutionPolicy Bypass -File add_to_path.ps1
+#   or
+#   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+#   .\add_to_path.ps1
 
 Write-Host "Finding arduino-client.exe installation location..." -ForegroundColor Cyan
 

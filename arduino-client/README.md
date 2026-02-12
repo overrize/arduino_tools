@@ -49,15 +49,42 @@ arduino-client gen "用 Arduino Uno 做一个 LED 闪烁，13 号引脚" blink_d
 
 如果 `arduino-client` 命令找不到，可以运行辅助脚本自动添加 PATH：
 
+**PowerShell 方式**：
+
+如果遇到"禁止运行脚本"的错误，需要使用以下方式之一：
+
 ```powershell
-# PowerShell 方式
+# 方式 1：使用 Bypass 执行策略（推荐，仅当前会话）
+powershell -ExecutionPolicy Bypass -File .\arduino-client\scripts\add_to_path.ps1
+
+# 方式 2：临时修改当前会话的执行策略
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
 .\arduino-client\scripts\add_to_path.ps1
 
-# 或 Windows Batch 方式
+# 方式 3：永久修改执行策略（需要管理员权限）
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+.\arduino-client\scripts\add_to_path.ps1
+```
+
+**Windows Batch 方式**（无需修改执行策略）：
+
+```cmd
 .\arduino-client\scripts\add_to_path.bat
 ```
 
-脚本会自动查找 `arduino-client.exe` 的安装位置并添加到用户 PATH。添加后需要**重新打开终端窗口**才能生效。
+**脚本功能**：
+- 自动查找 `arduino-client.exe` 的安装位置
+- 检查是否已在 PATH 中（避免重复添加）
+- 自动添加到用户 PATH 环境变量
+- 提供刷新 PATH 的命令
+
+**添加后**：
+- 需要**重新打开终端窗口**才能生效
+- 或者运行以下命令刷新当前会话：
+  ```powershell
+  $env:Path = [System.Environment]::GetEnvironmentVariable("Path","User") + ";" + [System.Environment]::GetEnvironmentVariable("Path","Machine")
+  ```
+- 然后可以使用 `arduino-client` 命令
 
 ### 方式二：进入目录安装（兼容旧方式）
 

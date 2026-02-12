@@ -105,16 +105,30 @@ arduino-client gen "用 Arduino Uno 做一个 LED 闪烁，13 号引脚" blink_d
 - 配置可保存到当前目录（项目级）或用户主目录（全局）
 
 **如果 `arduino-client` 命令找不到**：
-- 方案一（推荐）：使用 `python -m arduino_client setup` 替代
-- 方案二：运行辅助脚本自动添加 PATH：
+
+- **方案一（推荐）**：使用 `python -m arduino_client setup` 替代
+
+- **方案二**：运行辅助脚本自动添加 PATH
+
+  **PowerShell 方式**（如果遇到"禁止运行脚本"错误）：
   ```powershell
-  # PowerShell 方式
-  .\arduino-client\scripts\add_to_path.ps1
+  # 使用 Bypass 执行策略（推荐）
+  powershell -ExecutionPolicy Bypass -File .\arduino-client\scripts\add_to_path.ps1
   
-  # 或 Windows Batch 方式
+  # 或临时修改执行策略
+  Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+  .\arduino-client\scripts\add_to_path.ps1
+  ```
+
+  **Windows Batch 方式**（无需修改执行策略）：
+  ```cmd
   .\arduino-client\scripts\add_to_path.bat
   ```
-  脚本会自动查找 `arduino-client.exe` 的安装位置并添加到用户 PATH。添加后需要**重新打开终端窗口**才能生效。
+
+  脚本会自动查找 `arduino-client.exe` 的安装位置并添加到用户 PATH。添加后需要**重新打开终端窗口**才能生效，或运行：
+  ```powershell
+  $env:Path = [System.Environment]::GetEnvironmentVariable("Path","User") + ";" + [System.Environment]::GetEnvironmentVariable("Path","Machine")
+  ```
 
 详见：[arduino-client/README.md](arduino-client/README.md)
 
