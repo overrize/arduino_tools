@@ -45,6 +45,20 @@ arduino-client gen "用 Arduino Uno 做一个 LED 闪烁，13 号引脚" blink_d
 - Windows Store 版本的 Python 可能需要将 Scripts 目录添加到 PATH，或使用 `python -m` 方式
 - 如果 `python -m arduino_client` 也失败，请确保已重新安装包：`pip install -e arduino-client/ --force-reinstall`
 
+**自动添加 PATH（方案二）**：
+
+如果 `arduino-client` 命令找不到，可以运行辅助脚本自动添加 PATH：
+
+```powershell
+# PowerShell 方式
+.\arduino-client\scripts\add_to_path.ps1
+
+# 或 Windows Batch 方式
+.\arduino-client\scripts\add_to_path.bat
+```
+
+脚本会自动查找 `arduino-client.exe` 的安装位置并添加到用户 PATH。添加后需要**重新打开终端窗口**才能生效。
+
 ### 方式二：进入目录安装（兼容旧方式）
 
 ```bash
