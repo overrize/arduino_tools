@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Arduino Client — Arduino 自然语言端到端开发 Client（LLM + arduino-cli）"
 readme = "README.md"
 license = { text = "MIT" }
-requires-python = ">=3.10"
+requires-python = ">=3.9"
 dependencies = [
     "pyserial>=3.5",
     "psutil>=5.9.0",
@@ -29,4 +29,4 @@ include = ["arduino_client*"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py39"
