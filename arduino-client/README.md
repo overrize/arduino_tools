@@ -20,19 +20,40 @@
 
 ## 快速开始
 
+### 方式一：从项目根目录安装（推荐）⭐
+
+```bash
+# 1. 在 arduino_tools 项目根目录执行
+pip install -e arduino-client/
+
+# 2. 运行交互式配置向导（首次使用推荐）
+arduino-client setup
+# 向导会引导你选择 API 提供商并输入 API Key
+
+# 3. 开始使用
+arduino-client gen "用 Arduino Uno 做一个 LED 闪烁，13 号引脚" blink_demo --build --flash
+```
+
+**提示**：
+- 安装后首次运行任何命令时，如果未配置会提示运行 `arduino-client setup`
+- 配置向导支持 Kimi K2、OpenAI 和其他兼容 API
+- 配置可保存到当前目录（项目级）或用户主目录（全局）
+- 安装 `rich` 库可获得更好的终端 UI 体验：`pip install arduino-client[ui]`
+
+### 方式二：进入目录安装（兼容旧方式）
+
 ```bash
 # 1. 进入目录
 cd arduino-client
 
-# 2. 安装 Client（推荐）
+# 2. 安装 Client
 pip install -e .
 
-# 3. 配置 API Key（复制 .env.example 为 .env 并填入）
-cp .env.example .env
-# 编辑 .env，填入 OPENAI_API_KEY=sk-xxx
+# 3. 运行配置向导
+arduino-client setup
 
 # 4. 运行
-python -m arduino_client gen "用 Arduino Uno 做一个 LED 闪烁，13 号引脚" blink_demo --build --flash
+arduino-client gen "用 Arduino Uno 做一个 LED 闪烁，13 号引脚" blink_demo --build --flash
 ```
 
 ## 大模型配置

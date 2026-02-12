@@ -8,6 +8,7 @@ from . import __version__
 from .client import ArduinoClient
 from .code_generator import generate_arduino_code_fix
 from .llm_config import is_llm_configured
+from .setup import setup_config
 
 logging.basicConfig(
     level=logging.INFO,
@@ -92,23 +93,52 @@ def main() -> int:
     p_demo.add_argument("--flash", action="store_true", help="自动上传")
     p_demo.set_defaults(func=_cmd_demo)
     
+    # setup — 配置向导
+    p_setup = sub.add_parser("setup", help="交互式配置向导（首次使用推荐）")
+    p_setup.set_defaults(func=_cmd_setup)
+    
     args = parser.parse_args()
     if getattr(args, "verbose", False):
         logging.getLogger("arduino_client").setLevel(logging.DEBUG)
     
-    client = ArduinoClient(work_dir=args.work_dir)
-    
-    # 无子命令时显示帮助
+    # 无子命令时检查配置并引导
     if args.cmd is None:
+        # 检查是否已配置
+        client = ArduinoClient(work_dir=args.work_dir)
+        if not is_llm_configured(client.work_dir):
+            # 未配置，引导用户
+            try:
+                from rich.console import Console
+                console = Console()
+                console.print("\n[bold yellow]⚠ 首次使用需要配置 LLM API[/bold yellow]")
+                console.print("运行 [cyan]arduino-client setup[/cyan] 进行交互式配置\n")
+            except ImportError:
+                print("\n⚠ 首次使用需要配置 LLM API")
+                print("运行 arduino-client setup 进行交互式配置\n")
         parser.print_help()
         return 0
     
+    client = ArduinoClient(work_dir=args.work_dir)
     return args.func(client, args)
+
+
+def _cmd_setup(client: ArduinoClient, args) -> int:
+    """配置向导命令"""
+    success = setup_config(client.work_dir)
+    return 0 if success else 1
 
 
 def _cmd_gen(client: ArduinoClient, args) -> int:
     """生成代码命令"""
     if not is_llm_configured(client.work_dir):
+        try:
+            from rich.console import Console
+            console = Console()
+            console.print("\n[bold yellow]⚠ LLM API 未配置[/bold yellow]")
+            console.print("运行 [cyan]arduino-client setup[/cyan] 进行交互式配置\n")
+        except ImportError:
+            print("\n⚠ LLM API 未配置")
+            print("运行 arduino-client setup 进行交互式配置\n")
         print(SETUP_INSTRUCTIONS)
         return 1
     
@@ -203,29 +233,71 @@ def _cmd_gen(client: ArduinoClient, args) -> int:
 
 def _cmd_detect(client: ArduinoClient, args) -> int:
     """检测板卡命令"""
+    try:
+        from rich.console import Console
+        from rich.table import Table
+        console = Console()
+        use_rich = True
+    except ImportError:
+        use_rich = False
+    
     if args.type:
         board = client.detect_board_by_type(args.type)
         if not board:
-            print(f"未检测到 {args.type} 板卡", file=sys.stderr)
+            if use_rich:
+                console.print(f"[red]未检测到 {args.type} 板卡[/red]")
+            else:
+                print(f"未检测到 {args.type} 板卡", file=sys.stderr)
             return 1
-        print(f"✅ 找到 {args.type} 板卡:")
-        print(f"  串口: {board.port}")
-        if board.fqbn:
-            print(f"  FQBN: {board.fqbn}")
-        if board.name:
-            print(f"  名称: {board.name}")
+        
+        if use_rich:
+            table = Table(title=f"找到 {args.type} 板卡", show_header=True, header_style="bold cyan")
+            table.add_column("属性", style="cyan")
+            table.add_column("值", style="green")
+            table.add_row("串口", board.port)
+            if board.fqbn:
+                table.add_row("FQBN", board.fqbn)
+            if board.name:
+                table.add_row("名称", board.name)
+            console.print(table)
+        else:
+            print(f"✅ 找到 {args.type} 板卡:")
+            print(f"  串口: {board.port}")
+            if board.fqbn:
+                print(f"  FQBN: {board.fqbn}")
+            if board.name:
+                print(f"  名称: {board.name}")
     else:
         boards = client.detect_boards()
         if not boards:
-            print("未检测到 Arduino 板卡", file=sys.stderr)
+            if use_rich:
+                console.print("[red]未检测到 Arduino 板卡[/red]")
+            else:
+                print("未检测到 Arduino 板卡", file=sys.stderr)
             return 1
-        print(f"✅ 检测到 {len(boards)} 个板卡:")
-        for i, board in enumerate(boards, 1):
-            print(f"\n{i}. 串口: {board.port}")
-            if board.fqbn:
-                print(f"   FQBN: {board.fqbn}")
-            if board.name:
-                print(f"   名称: {board.name}")
+        
+        if use_rich:
+            table = Table(title=f"检测到 {len(boards)} 个板卡", show_header=True, header_style="bold cyan")
+            table.add_column("序号", style="cyan", width=6)
+            table.add_column("串口", style="green")
+            table.add_column("FQBN", style="yellow")
+            table.add_column("名称", style="blue")
+            for i, board in enumerate(boards, 1):
+                table.add_row(
+                    str(i),
+                    board.port,
+                    board.fqbn or "-",
+                    board.name or "-"
+                )
+            console.print(table)
+        else:
+            print(f"✅ 检测到 {len(boards)} 个板卡:")
+            for i, board in enumerate(boards, 1):
+                print(f"\n{i}. 串口: {board.port}")
+                if board.fqbn:
+                    print(f"   FQBN: {board.fqbn}")
+                if board.name:
+                    print(f"   名称: {board.name}")
     return 0
 
 
