@@ -1,10 +1,14 @@
-# 🚀 Arduino MCP Server 项目
+# 🚀 Arduino Tools 项目
 
 > 自然语言驱动的 Arduino 端到端开发工具
 
 ## 🎯 项目概述
 
-这是一个创新的 MCP Server 项目，让用户通过**自然语言对话**就能完成 Arduino 嵌入式开发的完整流程。
+这是一个创新的 Arduino 开发工具集，提供两种使用方式：
+1. **独立 Client 工具**（推荐）⭐ - 不依赖 kiro，使用 LLM API 生成代码
+2. **MCP Server** - 通过 kiro 使用，模板驱动代码生成
+
+让用户通过**自然语言描述**就能完成 Arduino 嵌入式开发的完整流程。
 
 ### 核心价值
 
@@ -14,9 +18,9 @@
 - 🤔 上下文缺失（不知道硬件连接方式）
 - 🐛 错误诊断难（软硬件问题难区分）
 
-**解决方案**: Arduino MCP Server
+**解决方案**: Arduino Tools
 - 🗣️ 自然语言输入 - 用对话描述需求
-- 🤖 自动代码生成 - 基于模板可靠生成
+- 🤖 自动代码生成 - LLM API 或模板驱动两种方式
 - ⚡ 一键编译上传 - 端到端自动化
 - 🎉 立即看到结果 - 快速反馈循环
 
@@ -175,7 +179,15 @@ void loop() {
 
 ## 🎨 技术亮点
 
-### 1. 模板驱动的代码生成
+### 1. 两种代码生成方式
+
+#### Client 工具：LLM API 生成
+- ✅ 灵活性高 - 可处理复杂需求
+- ✅ 智能化 - AI 理解自然语言
+- ✅ 无需维护模板 - 自动生成代码
+- ✅ 支持多种 LLM - OpenAI、Kimi 等
+
+#### MCP Server：模板驱动生成
 - ✅ 可靠性高 - 保证代码质量
 - ✅ 速度快 - 无需 API 调用
 - ✅ 零成本 - 不依赖外部服务
@@ -187,13 +199,13 @@ void loop() {
 - ✅ 功能完整 - 编译、上传、监控
 - ✅ 稳定可靠 - 官方维护
 
-### 3. 两种工作模式
-- **一键模式**: 快速原型，适合初学者
-- **分步模式**: 学习调试，适合深入了解
+### 3. 两种使用方式
+- **Client 工具**: 独立使用，CLI 或 Python API
+- **MCP Server**: 通过 kiro 集成到工作流
 
 ### 4. 清晰的架构
 ```
-用户输入 → 意图解析 → 代码生成 → 编译上传 → 串口监控
+用户输入 → 意图解析 → 代码生成（LLM/模板） → 编译上传 → 串口监控
 ```
 
 ## 💡 核心洞察
@@ -209,6 +221,13 @@ void loop() {
 
 ## 📈 性能指标
 
+### Client 工具（LLM API）
+- 代码生成: 2-5s（取决于 LLM API 响应时间）
+- 编译时间: 5-10s
+- 上传时间: 2-3s
+- **端到端: < 30s** 🚀
+
+### MCP Server（模板驱动）
 - 代码生成: < 100ms ⚡
 - 编译时间: 5-10s
 - 上传时间: 2-3s
@@ -252,16 +271,21 @@ void loop() {
 
 ### 核心文档
 
-#### 用户文档
+#### Client 工具文档（推荐）⭐
+- [arduino-client/README.md](arduino-client/README.md) - Client 工具概述
+- [arduino-client/QUICK_START.md](arduino-client/QUICK_START.md) - 快速开始
+- [arduino-client/docs/LESSONS.md](arduino-client/docs/LESSONS.md) - 开发经验
+- [arduino-client/docs/skills/](arduino-client/docs/skills/) - Cursor Skills
+
+#### MCP Server 文档
 - [arduino-mcp-server/README.md](arduino-mcp-server/README.md) - MCP Server 概述
 - [arduino-mcp-server/QUICKSTART.md](arduino-mcp-server/QUICKSTART.md) - 5 分钟快速上手
 - [arduino-mcp-server/USAGE.md](arduino-mcp-server/USAGE.md) - 详细使用指南
 - [arduino-mcp-server/examples/example-conversations.md](arduino-mcp-server/examples/example-conversations.md) - 对话示例
 
 #### 开发文档
+- [REFACTOR_COMPLETE.md](REFACTOR_COMPLETE.md) - 重构完成说明
 - [plans/2026-02-01-arduino-mcp-server-design.md](plans/2026-02-01-arduino-mcp-server-design.md) - 设计文档
-- [arduino-mcp-server/ARCHITECTURE.md](arduino-mcp-server/ARCHITECTURE.md) - 架构说明
-- [arduino-mcp-server/IMPLEMENTATION_LOG.md](arduino-mcp-server/IMPLEMENTATION_LOG.md) - 实现记录
 
 ## 🎓 经验总结
 
@@ -272,9 +296,10 @@ void loop() {
 4. ✅ 快速验证 MVP
 
 ### 关键收获
-- **技术**: 模板驱动的代码生成很有效
+- **技术**: 模板驱动和 LLM API 两种方式各有优势
 - **产品**: 端到端体验很重要
 - **方法**: 从最简单的场景开始
+- **架构**: 独立 Client 工具更灵活，参考 STloop 设计
 
 ## 🎯 成功标准
 
@@ -300,8 +325,20 @@ void loop() {
 
 ---
 
-**项目状态**: ✅ MVP 完成  
+**项目状态**: ✅ MVP 完成 + ✅ Client 工具重构完成  
 **创建日期**: 2026-02-01  
-**最后更新**: 2026-02-01
+**最后更新**: 2026-02-12
 
 🎉 **从想法到闪烁的 LED，只需要一句话！**
+
+---
+
+## 📝 最近更新（2026-02-12）
+
+- ✨ 新增独立 Client 工具（`arduino-client/`）
+- 🔄 从 MCP Server 重构为独立工具
+- 🤖 使用 LLM API 生成代码（替代模板）
+- 📚 添加完整文档和 Cursor Skills
+- 📖 更新主 README，说明两种使用方式
+
+详见：[REFACTOR_COMPLETE.md](REFACTOR_COMPLETE.md)
