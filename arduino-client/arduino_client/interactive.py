@@ -19,24 +19,33 @@ def _has_rich() -> bool:
         return False
 
 
-def _print_banner():
+def _print_banner(work_dir: Path):
+    """显示欢迎与 env 配置状态"""
+    llm_ok = is_llm_configured(work_dir)
     if _has_rich():
         from rich.console import Console
         from rich.panel import Panel
         console = Console()
+        status = "[green]已配置[/green]" if llm_ok else "[yellow]未配置，请选 1 配置[/yellow]"
         console.print(Panel.fit(
             f"[bold cyan]Arduino Client[/bold cyan] v{__version__} — 交互式终端\n"
+            f"LLM API（.env）: {status}\n"
             "输入数字选择操作，或输入 [cyan]help[/cyan] / [cyan]exit[/cyan]",
             border_style="cyan"
         ))
     else:
         print("=" * 50)
         print(f"Arduino Client v{__version__} — 交互式终端")
+        print("LLM API（.env）: " + ("已配置" if llm_ok else "未配置，请选 1 配置"))
         print("输入数字选择操作，或 help / exit")
         print("=" * 50)
 
 
 def _print_menu(work_dir: Path, has_client: bool):
+    """显示菜单，并自动检测 env 是否已配置"""
+    llm_ok = is_llm_configured(work_dir)
+    opt1 = "配置 LLM API（API Key、Base URL、模型）"
+    opt1_suffix = " [已配置]" if llm_ok else " [未配置]"
     if _has_rich():
         from rich.console import Console
         from rich.table import Table
@@ -44,7 +53,7 @@ def _print_menu(work_dir: Path, has_client: bool):
         table = Table(show_header=False, box=None, padding=(0, 2))
         table.add_column(style="bold cyan")
         table.add_column(style="white")
-        table.add_row("1", "配置 LLM API（API Key、Base URL、模型）")
+        table.add_row("1", opt1 + (" [green]已配置[/green]" if llm_ok else " [yellow]未配置[/yellow]"))
         table.add_row("2", "检测板卡" + ("" if has_client else " [需先安装 arduino-cli]"))
         table.add_row("3", "生成代码（自然语言 → 工程）")
         table.add_row("4", "编译工程")
@@ -54,7 +63,7 @@ def _print_menu(work_dir: Path, has_client: bool):
         console.print(table)
         console.print(f"[dim]工作目录: {work_dir}[/dim]")
     else:
-        print("1. 配置 LLM API（API Key、Base URL、模型）")
+        print("1. " + opt1 + opt1_suffix)
         print("2. 检测板卡" + ("" if has_client else " (需先安装 arduino-cli)"))
         print("3. 生成代码（自然语言 → 工程）")
         print("4. 编译工程")
@@ -76,7 +85,7 @@ def run_interactive(work_dir: Optional[Path] = None) -> int:
     work_dir = Path(work_dir or Path.cwd())
     client = None  # 延迟创建，避免未安装 arduino-cli 时无法进入交互
 
-    _print_banner()
+    _print_banner(work_dir)
 
     while True:
         try:
