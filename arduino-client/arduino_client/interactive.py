@@ -9,6 +9,8 @@ from typing import Optional
 from . import __version__
 from .setup import setup_config
 from .llm_config import is_llm_configured
+from .errors import ConfigurationError
+from .installer import install_arduino_cli
 
 
 def _has_rich() -> bool:
@@ -125,14 +127,56 @@ def run_interactive(work_dir: Optional[Path] = None) -> int:
                 try:
                     from .client import ArduinoClient
                     client = ArduinoClient(work_dir=work_dir)
+                except ConfigurationError as e:
+                    # 检测是否是 arduino-cli 未安装的错误
+                    error_msg = str(e)
+                    is_cli_missing = "未找到 arduino-cli" in error_msg or "arduino-cli" in error_msg.lower()
+                    
+                    if _has_rich():
+                        from rich.console import Console
+                        from rich.prompt import Confirm
+                        console = Console()
+                        console.print(f"[red]需要 arduino-cli: {e}[/red]")
+                        
+                        if is_cli_missing:
+                            console.print("[yellow]是否自动安装 arduino-cli？[/yellow]")
+                            try:
+                                if Confirm.ask("自动安装", default=True):
+                                    console.print("[cyan]正在安装 arduino-cli...[/cyan]")
+                                    success, msg = install_arduino_cli()
+                                    if success:
+                                        console.print(f"[green]{msg}[/green]")
+                                        console.print("[dim]安装完成后，请重新启动终端或刷新 PATH，然后重试[/dim]")
+                                    else:
+                                        console.print(f"[yellow]{msg}[/yellow]")
+                                else:
+                                    console.print("[dim]可先使用 1 配置 API，或手动安装 arduino-cli 后重试[/dim]")
+                            except Exception:
+                                # Confirm 可能不可用（如非交互式终端），直接提示
+                                console.print("[dim]可先使用 1 配置 API，或手动安装 arduino-cli 后重试[/dim]")
+                        else:
+                            console.print("[dim]可先使用 1 配置 API，或安装 arduino-cli 后重试[/dim]")
+                    else:
+                        print(f"需要 arduino-cli: {e}")
+                        if is_cli_missing:
+                            answer = input("是否自动安装 arduino-cli？(Y/n): ").strip().lower()
+                            if answer in ("", "y", "yes"):
+                                print("正在安装 arduino-cli...")
+                                success, msg = install_arduino_cli()
+                                print(msg)
+                                if success:
+                                    print("安装完成后，请重新启动终端或刷新 PATH，然后重试")
+                            else:
+                                print("可先使用 1 配置 API，或手动安装 arduino-cli 后重试")
+                        else:
+                            print("可先使用 1 配置 API，或安装 arduino-cli 后重试")
+                    continue
                 except Exception as e:
                     if _has_rich():
                         from rich.console import Console
-                        Console().print(f"[red]需要 arduino-cli: {e}[/red]")
-                        Console().print("[dim]可先使用 1 配置 API，或安装 arduino-cli 后重试[/dim]")
+                        Console().print(f"[red]错误: {e}[/red]")
                     else:
-                        print(f"需要 arduino-cli: {e}")
-                        print("可先使用 1 配置 API，或安装 arduino-cli 后重试")
+                        print(f"错误: {e}")
                     continue
 
             # 2 — 检测板卡
