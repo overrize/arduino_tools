@@ -6,6 +6,11 @@ venv/
 env/
 .venv/
 
+# Environment (用户配置，不提交)
+.env
+.env.local
+.env.*.local
+
 # IDE
 .vscode/
 .idea/
