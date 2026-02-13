@@ -9,6 +9,7 @@ from .client import ArduinoClient
 from .code_generator import generate_arduino_code_fix
 from .llm_config import is_llm_configured
 from .setup import setup_config
+from .interactive import run_interactive
 
 logging.basicConfig(
     level=logging.INFO,
@@ -97,27 +98,44 @@ def main() -> int:
     p_setup = sub.add_parser("setup", help="交互式配置向导（首次使用推荐）")
     p_setup.set_defaults(func=_cmd_setup)
     
+    # interactive — 交互式终端（可停留的菜单客户端）
+    p_interactive = sub.add_parser(
+        "interactive",
+        aliases=["i", "shell"],
+        help="进入交互式终端（菜单驱动，类似可停留的客户端）",
+    )
+    p_interactive.set_defaults(func=_cmd_interactive)
+    
     args = parser.parse_args()
     if getattr(args, "verbose", False):
         logging.getLogger("arduino_client").setLevel(logging.DEBUG)
     
-    # 无子命令时检查配置并引导
+    # setup 命令不依赖 arduino-cli，仅配置 LLM API
+    if args.cmd == "setup":
+        success = setup_config(Path(args.work_dir))
+        return 0 if success else 1
+    
+    # interactive 命令不依赖 arduino-cli 即可进入（内部按需创建 Client）
+    if args.cmd == "interactive":
+        return run_interactive(Path(args.work_dir))
+    
+    # 无子命令时检查配置并引导（不创建 ArduinoClient，避免依赖 arduino-cli）
     if args.cmd is None:
-        # 检查是否已配置
-        client = ArduinoClient(work_dir=args.work_dir)
-        if not is_llm_configured(client.work_dir):
-            # 未配置，引导用户
+        if not is_llm_configured(Path(args.work_dir)):
             try:
                 from rich.console import Console
                 console = Console()
                 console.print("\n[bold yellow]⚠ 首次使用需要配置 LLM API[/bold yellow]")
-                console.print("运行 [cyan]arduino-client setup[/cyan] 进行交互式配置\n")
+                console.print("运行 [cyan]arduino-client setup[/cyan] 或 [cyan]python -m arduino_client setup[/cyan] 进行交互式配置")
+                console.print("或运行 [cyan]arduino-client interactive[/cyan] 进入交互式终端（菜单驱动）\n")
             except ImportError:
                 print("\n⚠ 首次使用需要配置 LLM API")
-                print("运行 arduino-client setup 进行交互式配置\n")
+                print("运行 arduino-client setup 或 python -m arduino_client setup 进行交互式配置")
+                print("或运行 arduino-client interactive 进入交互式终端（菜单驱动）\n")
         parser.print_help()
         return 0
     
+    # 其他命令需要 ArduinoClient（会检查 arduino-cli）
     client = ArduinoClient(work_dir=args.work_dir)
     return args.func(client, args)
 
@@ -126,6 +144,11 @@ def _cmd_setup(client: ArduinoClient, args) -> int:
     """配置向导命令"""
     success = setup_config(client.work_dir)
     return 0 if success else 1
+
+
+def _cmd_interactive(client: ArduinoClient, args) -> int:
+    """交互式终端（一般已在 main 中提前处理，此处兜底）"""
+    return run_interactive(Path(args.work_dir))
 
 
 def _cmd_gen(client: ArduinoClient, args) -> int:

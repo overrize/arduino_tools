@@ -176,6 +176,27 @@ python -m arduino_client upload my_project --fqbn arduino:avr:uno
 python -m arduino_client demo blink --board uno --flash
 ```
 
+### 交互式终端（可停留的客户端）
+
+除了单次命令，也可以进入**交互式终端**，在同一个会话里用菜单完成配置、检测、生成、编译、上传等操作（类似可停留的客户端，而不是每次敲一条命令就退出）：
+
+```bash
+python -m arduino_client interactive
+# 或简写
+python -m arduino_client i
+```
+
+进入后会显示菜单：
+- **1** — 配置 LLM API（无需安装 arduino-cli）
+- **2** — 检测板卡
+- **3** — 生成代码（自然语言 → 工程）
+- **4** — 编译工程
+- **5** — 上传固件
+- **6** — Demo: Blink
+- **7** — 退出
+
+输入 `help` 或 `exit` 也可。安装可选依赖 `arduino-client[ui]` 后，交互界面会使用 rich 美化显示。
+
 ## 使用流程
 
 1. **描述需求**：自然语言（如「用 Arduino Uno 做一个 LED 闪烁，13 号引脚」）
