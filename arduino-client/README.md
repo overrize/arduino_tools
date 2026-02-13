@@ -26,19 +26,20 @@
 # 1. 在 arduino_tools 项目根目录执行
 pip install -e arduino-client/
 
-# 2. 运行交互式配置向导（首次使用推荐）
-arduino-client setup
-# 向导会引导你选择 API 提供商并输入 API Key
+# 2. 首次使用：直接运行（无参数）进入交互式终端
+python -m arduino_client
+# 或 arduino-client
 
-# 3. 开始使用
-arduino-client gen "用 Arduino Uno 做一个 LED 闪烁，13 号引脚" blink_demo --build --flash
+# 3. 在菜单中选 1 完成 LLM API 配置（API Key、Base URL、模型），无需事先安装 arduino-cli
+# 4. 之后可在同一终端选 2～6 检测板卡、生成代码、编译上传，或输入 exit 退出后使用单条命令
 ```
 
+**首次安装即完成配置**：运行 `arduino-client` 或 `python -m arduino_client`（不加子命令）会直接进入交互式终端，菜单第一项即为「配置 LLM API」，按提示即可完成首次配置。
+
 **提示**：
-- 安装后首次运行任何命令时，如果未配置会提示运行 `arduino-client setup`
-- 配置向导支持 Kimi K2、OpenAI 和其他兼容 API
-- 配置可保存到当前目录（项目级）或用户主目录（全局）
-- 安装 `rich` 库可获得更好的终端 UI 体验：`pip install arduino-client[ui]`
+- 需要单条命令时：`arduino-client gen "..." 项目名`、`arduino-client setup`（仅配置）、`arduino-client interactive`（仅进入菜单）
+- 配置支持 Kimi K2、OpenAI 等，可保存到当前目录或用户主目录
+- 安装 `rich` 库可获得更好终端 UI：`pip install arduino-client[ui]`
 
 **注意**：
 - 如果 `arduino-client` 命令找不到，可以使用 `python -m arduino_client` 替代

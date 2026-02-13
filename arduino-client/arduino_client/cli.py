@@ -119,21 +119,9 @@ def main() -> int:
     if args.cmd == "interactive":
         return run_interactive(Path(args.work_dir))
     
-    # 无子命令时检查配置并引导（不创建 ArduinoClient，避免依赖 arduino-cli）
+    # 无子命令时直接进入交互式终端（首次安装即可在菜单中选 1 完成配置）
     if args.cmd is None:
-        if not is_llm_configured(Path(args.work_dir)):
-            try:
-                from rich.console import Console
-                console = Console()
-                console.print("\n[bold yellow]⚠ 首次使用需要配置 LLM API[/bold yellow]")
-                console.print("运行 [cyan]arduino-client setup[/cyan] 或 [cyan]python -m arduino_client setup[/cyan] 进行交互式配置")
-                console.print("或运行 [cyan]arduino-client interactive[/cyan] 进入交互式终端（菜单驱动）\n")
-            except ImportError:
-                print("\n⚠ 首次使用需要配置 LLM API")
-                print("运行 arduino-client setup 或 python -m arduino_client setup 进行交互式配置")
-                print("或运行 arduino-client interactive 进入交互式终端（菜单驱动）\n")
-        parser.print_help()
-        return 0
+        return run_interactive(Path(args.work_dir))
     
     # 其他命令需要 ArduinoClient（会检查 arduino-cli）
     client = ArduinoClient(work_dir=args.work_dir)
