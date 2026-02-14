@@ -11,6 +11,7 @@ from .setup import setup_config
 from .llm_config import is_llm_configured
 from .errors import ConfigurationError
 from .installer import install_arduino_cli
+from .simulation import create_wokwi_project, ensure_simulation_and_run
 
 
 def _has_rich() -> bool:
@@ -61,7 +62,8 @@ def _print_menu(work_dir: Path, has_client: bool):
         table.add_row("4", "编译工程")
         table.add_row("5", "上传固件")
         table.add_row("6", "Demo: Blink")
-        table.add_row("7", "退出")
+        table.add_row("7", "仿真运行（Wokwi，无板时可用，可获取串口反馈）")
+        table.add_row("8", "退出")
         console.print(table)
         console.print(f"[dim]工作目录: {work_dir}[/dim]")
     else:
@@ -71,13 +73,14 @@ def _print_menu(work_dir: Path, has_client: bool):
         print("4. 编译工程")
         print("5. 上传固件")
         print("6. Demo: Blink")
-        print("7. 退出")
+        print("7. 仿真运行（Wokwi，无板时可用，可获取串口反馈）")
+        print("8. 退出")
         print(f"工作目录: {work_dir}")
 
 
 def _prompt(text: str = "请选择") -> str:
     try:
-        return input(f"\n{text} [1-7 / help / exit]: ").strip()
+        return input(f"\n{text} [1-8 / help / exit]: ").strip()
     except (EOFError, KeyboardInterrupt):
         return "exit"
 
@@ -97,7 +100,7 @@ def run_interactive(work_dir: Optional[Path] = None) -> int:
 
             if not choice:
                 continue
-            if choice.lower() in ("exit", "quit", "q", "7"):
+            if choice.lower() in ("exit", "quit", "q", "8"):
                 if _has_rich():
                     from rich.console import Console
                     Console().print("[cyan]再见[/cyan]")
@@ -105,7 +108,7 @@ def run_interactive(work_dir: Optional[Path] = None) -> int:
                     print("再见")
                 return 0
             if choice.lower() == "help":
-                print("输入 1-7 执行对应操作，exit 退出。")
+                print("输入 1-8 执行对应操作，exit 退出。未检测到板卡时可使用 7 仿真运行。")
                 continue
 
             # 1 — 配置 API
@@ -120,6 +123,38 @@ def run_interactive(work_dir: Optional[Path] = None) -> int:
                         c.print("[yellow]未保存或失败[/yellow]")
                 else:
                     print("配置已保存" if success else "未保存或失败")
+                continue
+
+            # 7 — 仿真运行（无需板卡，可获取串口反馈）
+            if choice == "7":
+                from . import _paths
+                path = input("工程目录或名称（如 arduino_projects/my_sketch，需已编译）：").strip()
+                if not path:
+                    continue
+                projects_dir = _paths.get_projects_dir(work_dir) / "arduino_projects"
+                proj_dir = Path(path) if Path(path).is_absolute() else projects_dir / path
+                proj_dir = proj_dir.resolve()
+                fqbn = input("FQBN（默认 arduino:avr:uno）：").strip() or "arduino:avr:uno"
+                expect = input("期望串口出现文本则成功（可选，直接回车跳过）：").strip() or None
+                try:
+                    ok, msg = ensure_simulation_and_run(proj_dir, fqbn=fqbn, timeout_ms=15000, expect_text=expect)
+                    if _has_rich():
+                        from rich.console import Console
+                        c = Console()
+                        if ok:
+                            c.print("[green]仿真完成[/green]")
+                            c.print("[dim]串口输出：[/dim]")
+                            c.print(msg)
+                        else:
+                            c.print(f"[red]仿真失败: {msg}[/red]")
+                    else:
+                        if ok:
+                            print("仿真完成。串口输出：")
+                            print(msg)
+                        else:
+                            print(f"仿真失败: {msg}")
+                except Exception as e:
+                    print(f"仿真错误: {e}", file=sys.stderr)
                 continue
 
             # 2–6 需要 ArduinoClient
@@ -189,6 +224,7 @@ def run_interactive(work_dir: Optional[Path] = None) -> int:
                         c = Console()
                         if not boards:
                             c.print("[yellow]未检测到板卡[/yellow]")
+                            c.print("[cyan]可使用菜单 7 进行 Wokwi 仿真（需先编译工程），仿真支持通过串口输出获取反馈。[/cyan]")
                         else:
                             t = Table(title=f"检测到 {len(boards)} 个板卡")
                             t.add_column("串口", style="cyan")
@@ -199,7 +235,7 @@ def run_interactive(work_dir: Optional[Path] = None) -> int:
                             c.print(t)
                     else:
                         if not boards:
-                            print("未检测到板卡")
+                            print("未检测到板卡。可使用菜单 7 进行 Wokwi 仿真（需先编译工程），仿真支持通过串口输出获取反馈。")
                         else:
                             for i, b in enumerate(boards, 1):
                                 print(f"{i}. {b.port}  FQBN: {b.fqbn or '-'}  名称: {b.name or '-'}")
@@ -265,20 +301,47 @@ def run_interactive(work_dir: Optional[Path] = None) -> int:
                     print(f"上传错误: {e}", file=sys.stderr)
                 continue
 
-            # 6 — Demo Blink
+            # 6 — Demo Blink（有板则上传，无板则仿真）
             if choice == "6":
                 try:
-                    proj_dir = client.demo_blink(board_type="uno", pin=13, interval=1000, flash=True)
-                    print(f"Demo 完成: {proj_dir}")
+                    board = client.detect_board_by_type("uno")
+                    if board:
+                        proj_dir = client.demo_blink(board_type="uno", pin=13, interval=1000, flash=True)
+                        print(f"Demo 完成（已上传）: {proj_dir}")
+                    else:
+                        if not is_llm_configured(work_dir):
+                            print("仿真 Demo 需先生成代码，请先执行 1 配置 LLM API")
+                            continue
+                        if _has_rich():
+                            from rich.console import Console
+                            Console().print("[cyan]未检测到板卡，将生成代码并运行 Wokwi 仿真（可获取串口反馈）[/cyan]")
+                        else:
+                            print("未检测到板卡，将生成代码并运行 Wokwi 仿真（可获取串口反馈）")
+                        prompt = "用 Arduino uno 做一个 LED 闪烁，13 号引脚，每 1000 毫秒闪烁一次"
+                        proj_dir = client.generate(prompt, "blink_demo")
+                        result = client.build(proj_dir, "arduino:avr:uno")
+                        if not result.success:
+                            raise RuntimeError(f"编译失败: {result.output[:500]}")
+                        create_wokwi_project(proj_dir, fqbn="arduino:avr:uno", led_pin=13)
+                        ok, out = ensure_simulation_and_run(proj_dir, fqbn="arduino:avr:uno", timeout_ms=12000)
+                        if _has_rich():
+                            from rich.console import Console
+                            c = Console()
+                            c.print(f"[green]Demo 仿真完成: {proj_dir}[/green]")
+                            c.print("[dim]串口输出：[/dim]")
+                            c.print(out)
+                        else:
+                            print(f"Demo 仿真完成: {proj_dir}")
+                            print("串口输出：", out)
                 except Exception as e:
                     print(f"Demo 失败: {e}", file=sys.stderr)
                 continue
 
             if _has_rich():
                 from rich.console import Console
-                Console().print("[yellow]请输入 1-7 或 help/exit[/yellow]")
+                Console().print("[yellow]请输入 1-8 或 help/exit[/yellow]")
             else:
-                print("请输入 1-7 或 help/exit")
+                print("请输入 1-8 或 help/exit")
 
         except KeyboardInterrupt:
             print("\n再见")
