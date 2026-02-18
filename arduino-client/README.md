@@ -9,6 +9,7 @@
 - **编码**：Arduino C++ 代码生成（LLM API）
 - **编译**：arduino-cli
 - **上传/调试**：arduino-cli
+- **仿真**：Wokwi 仿真（未检测到板卡时可用，支持通过串口输出/指令获取反馈）
 - **自动化测试**：串口监控
 - **目标**：快速原型开发，从想法到运行代码
 
@@ -31,7 +32,7 @@ python -m arduino_client
 # 或 arduino-client
 
 # 3. 在菜单中选 1 完成 LLM API 配置（API Key、Base URL、模型），无需事先安装 arduino-cli
-# 4. 之后可在同一终端选 2～6 检测板卡、生成代码、编译上传，或输入 exit 退出后使用单条命令
+# 4. 之后可在同一终端选 2～8：检测板卡、生成代码、编译上传、仿真运行（无板时可用）等，或输入 exit 退出后使用单条命令
 ```
 
 **首次安装即完成配置**：运行 `arduino-client` 或 `python -m arduino_client`（不加子命令）会直接进入交互式终端，菜单第一项即为「配置 LLM API」，按提示即可完成首次配置。
@@ -189,12 +190,13 @@ python -m arduino_client i
 
 进入后会显示菜单：
 - **1** — 配置 LLM API（无需安装 arduino-cli）
-- **2** — 检测板卡
+- **2** — 检测板卡（未检测到板卡时可使用 7 仿真）
 - **3** — 生成代码（自然语言 → 工程）
 - **4** — 编译工程
 - **5** — 上传固件
-- **6** — Demo: Blink
-- **7** — 退出
+- **6** — Demo: Blink（有板则上传，无板则自动运行 Wokwi 仿真）
+- **7** — 仿真运行（Wokwi，无板时可用，可获取串口反馈）
+- **8** — 退出
 
 输入 `help` 或 `exit` 也可。安装可选依赖 `arduino-client[ui]` 后，交互界面会使用 rich 美化显示。
 
@@ -205,6 +207,17 @@ python -m arduino_client i
 3. **自动编译**：arduino-cli 编译
 4. **上传运行**：arduino-cli 上传到设备
 5. **串口监控**：验证输出
+
+## 仿真（无板时可用）
+
+当未检测到板卡时，可使用 **Wokwi 仿真**运行固件，并通过串口输出或期望文本做「通过指令获取反馈」的校验。
+
+- **菜单 7**：对已编译工程生成 Wokwi 配置（`diagram.json`、`wokwi.toml`）并运行 `wokwi-cli`，终端会显示仿真串口输出；可输入「期望串口出现某文本」做自动化判定。
+- **菜单 6 Demo**：若无板卡，会自动生成代码、编译、生成 Wokwi 项目并运行仿真，输出串口内容。
+
+**仿真前置**：
+- 安装 [wokwi-cli](https://docs.wokwi.com/wokwi-ci/cli-usage)：`npm install -g wokwi-cli`
+- 在 [Wokwi CI Dashboard](https://wokwi.com/dashboard/ci) 创建 token，并设置环境变量 `WOKWI_CLI_TOKEN`
 
 ## 支持板卡
 
