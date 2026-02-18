@@ -4,6 +4,21 @@
 
 ## 变更记录
 
+### 2026-02-15 CI 修复与经验
+
+**问题**：
+- 仓库 CI 仅配置了 `arduino-mcp-server` 的 job，且 `working-directory` 指向的目录下没有 `pyproject.toml`（该目录仅有 `examples/`），导致 `pip install -e ".[dev]"` 报错：`neither 'setup.py' nor 'pyproject.toml' found`，CI 必败。
+
+**处理**：
+1. **本地复现**：在 `arduino-mcp-server` 下执行 `pip install -e ".[dev]"` 复现同样错误。
+2. **调整 CI**：
+   - 为 **arduino-client** 新增独立 job（安装 + 冒烟测试 `import arduino_client`、`--version`），保证主工具在每次 push 都被验证。
+   - **arduino-mcp-server** job 增加条件 `if: hashFiles('arduino-mcp-server/pyproject.toml') != ''`，仅在存在 `pyproject.toml` 时运行，避免目录为空或仅文档时 CI 失败。
+
+**经验**：
+- CI 的 `working-directory` 必须与仓库内实际包结构一致；若某子目录仅为占位（如只有文档），要么为该 job 加存在性判断，要么在目录内补全最小可安装结构。
+- 主开发线（如 arduino-client）应有独立 CI job，避免因其他子项目缺失而整体红。
+
 ### 2026-02-12 从 MCP Server 重构为独立 Client 工具
 
 **问题**：
