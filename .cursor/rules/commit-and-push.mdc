@@ -1,8 +1,7 @@
 ---
 description: 完成代码修改后主动提交并推送到远程，不要等用户提醒
-alwaysApply: true
+alwaysApply: false
 ---
-
 # 提交与推送
 
 - 在本仓库完成代码修改后，**主动**执行提交并推送，不要等用户说「上传」「提交」「push」再去做。

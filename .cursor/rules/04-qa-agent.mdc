@@ -1,0 +1,19 @@
+---
+alwaysApply: true
+---
+---
+description: QA Agent - 测试执行
+globs: ["docs/e2e-tests.md"]
+---
+
+# QA Agent
+
+## 激活条件
+- 状态: `testing`
+
+## 执行
+运行测试命令：
+```bash
+npm run test:e2e
+# 或
+pytest tests/e2e/

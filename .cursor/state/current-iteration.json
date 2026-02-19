@@ -1,0 +1,36 @@
+{
+    "iteration": 1,
+    "status": "pending",
+    "current_agent": null,
+    "context": {
+      "vision": "docs/vision.md",
+      "e2e_tests": ["docs/e2e-tests.md"],
+      "last_error": null,
+      "test_results": null,
+      "history": [
+        {
+          "agent": "product",
+          "status": "completed",
+          "timestamp": "2026-02-20",
+          "output": ".cursor/state/product-output.md"
+        },
+        {
+          "agent": "architect",
+          "status": "completed",
+          "timestamp": "2026-02-20",
+          "output": ".cursor/state/architect-output.md"
+        },
+        {
+          "agent": "dev",
+          "status": "completed",
+          "timestamp": "2026-02-20",
+          "output": ".cursor/state/dev-output.md"
+        }
+      ]
+    },
+    "config": {
+      "auto_continue": true,
+      "max_iterations": 10,
+      "require_approval_for_architecture": false
+    }
+  }

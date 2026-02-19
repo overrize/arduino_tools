@@ -12,7 +12,8 @@ from .builder import Builder
 from .uploader import Uploader
 from .monitor import Monitor
 from .code_generator import generate_arduino_code, generate_arduino_code_fix
-from .models import BoardInfo, CompileResult, UploadResult, ProjectConfig
+from .requirement_analyzer import analyze_requirement
+from .models import BoardInfo, CompileResult, UploadResult, ProjectConfig, RequirementAnalysis
 
 log = logging.getLogger("arduino_client")
 
@@ -93,13 +94,40 @@ class ArduinoClient:
         
         output_dir.mkdir(parents=True, exist_ok=True)
         
-        # 生成代码
+        # 需求分析（可选，用于改进代码生成）
+        requirement_analysis = None
+        try:
+            print("  [分析] 正在分析需求...")
+            requirement_analysis = analyze_requirement(
+                prompt,
+                api_key=api_key,
+                base_url=base_url,
+                model=model,
+                work_dir=self.work_dir,
+            )
+            print(f"  [分析] 识别到板卡: {requirement_analysis.board_type.value}")
+            if requirement_analysis.components:
+                print(f"  [分析] 组件: {', '.join(requirement_analysis.components)}")
+            if requirement_analysis.libraries:
+                print(f"  [分析] 需要的库: {', '.join(requirement_analysis.libraries)}")
+            
+            # 如果需要澄清，输出警告
+            if requirement_analysis.needs_clarification:
+                print("  [警告] 需求可能需要澄清:")
+                for q in requirement_analysis.clarification_questions:
+                    print(f"    - {q}")
+        except Exception as e:
+            log.warning("需求分析失败，继续使用原始 prompt: %s", str(e))
+            print(f"  [警告] 需求分析失败，使用原始 prompt: {str(e)}")
+        
+        # 生成代码（使用需求分析结果增强）
         code = generate_arduino_code(
             prompt,
             api_key=api_key,
             base_url=base_url,
             model=model,
             work_dir=self.work_dir,
+            requirement_analysis=requirement_analysis,
         )
         
         # 写入 .ino 文件

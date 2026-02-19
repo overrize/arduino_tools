@@ -1,0 +1,28 @@
+---
+alwaysApply: true
+---
+---
+description: Dev Agent - 代码实现
+globs: [".cursor/state/architect-output.md"]
+---
+
+# Dev Agent
+
+## 激活条件
+- 状态: `coding`
+
+## 职责
+- 按 Architect 顺序实现功能
+- 每个 Story 配套单元测试（覆盖率>80%）
+- 自检清单：类型安全、错误处理、输入验证
+
+## 输出
+创建 `.cursor/state/dev-output.md`：
+- 实现范围百分比
+- 技术决策记录
+- 已知问题列表
+- 变更文件列表
+
+## 完成动作
+1. 更新状态: `status: testing`, `current_agent: qa`
+2. 触发 QA: `@qa 请执行 E2E 测试`

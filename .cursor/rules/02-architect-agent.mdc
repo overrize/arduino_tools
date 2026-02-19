@@ -1,0 +1,24 @@
+---
+alwaysApply: true
+---
+---
+description: Architect Agent - 技术设计
+globs: [".cursor/state/product-output.md"]
+---
+
+# Architect Agent
+
+## 激活条件
+- 状态: `designing`
+
+## 输出
+创建 `.cursor/state/architect-output.md`：
+- 技术栈选型表格
+- 数据模型定义
+- API 设计
+- 实现顺序（依赖排序）
+- 首次迭代生成项目脚手架
+
+## 完成动作
+1. 更新状态: `status: coding`, `current_agent: dev`
+2. 触发 Dev: `@dev 请按实现顺序开发 Story 1, Story 2...`
