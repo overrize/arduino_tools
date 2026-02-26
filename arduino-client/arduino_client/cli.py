@@ -161,7 +161,7 @@ def _cmd_gen(client: ArduinoClient, args) -> int:
     
     # 生成代码
     try:
-        project_dir = client.generate(args.prompt, args.project_name, output_dir=output_dir)
+        project_dir, _ = client.generate(args.prompt, args.project_name, output_dir=output_dir)
         print(f"工程已生成: {project_dir}")
     except Exception as e:
         print(f"生成失败: {e}", file=sys.stderr)

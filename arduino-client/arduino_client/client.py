@@ -72,19 +72,15 @@ class ArduinoClient:
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         model: Optional[str] = None,
-    ) -> Path:
+        platform_hint: Optional[str] = None,
+    ) -> "tuple[Path, Optional[RequirementAnalysis]]":
         """根据自然语言生成 Arduino 工程
         
         Args:
-            prompt: 需求描述（自然语言）
-            project_name: 项目名称
-            output_dir: 输出目录，None 时使用 work_dir/projects/{project_name}
-            api_key: LLM API Key，None 时从环境变量读取
-            base_url: LLM API Base URL，None 时从环境变量读取
-            model: LLM 模型，None 时从环境变量读取
+            platform_hint: 平台 FQBN 提示，仅注入到代码生成（不影响需求分析）
             
         Returns:
-            生成的项目目录路径
+            (项目目录路径, 需求分析结果 or None)
         """
         if output_dir is None:
             projects_dir = _paths.get_projects_dir(self.work_dir)
@@ -94,7 +90,7 @@ class ArduinoClient:
         
         output_dir.mkdir(parents=True, exist_ok=True)
         
-        # 需求分析（可选，用于改进代码生成）
+        # 需求分析用原始 prompt（不注入平台提示，保持分析纯净）
         requirement_analysis = None
         try:
             print("  [分析] 正在分析需求...")
@@ -120,9 +116,16 @@ class ArduinoClient:
             log.warning("需求分析失败，继续使用原始 prompt: %s", str(e))
             print(f"  [警告] 需求分析失败，使用原始 prompt: {str(e)}")
         
-        # 生成代码（使用需求分析结果增强）
+        # 代码生成阶段注入平台提示
+        gen_prompt = prompt
+        if platform_hint:
+            gen_prompt = (
+                f"{prompt}\n\n"
+                f"【重要：目标平台 FQBN 为 {platform_hint}，请确保代码兼容该平台的 API。"
+                f"不同平台的 Wire/I2C 接口可能不同，请使用该平台支持的标准写法。】"
+            )
         code = generate_arduino_code(
-            prompt,
+            gen_prompt,
             api_key=api_key,
             base_url=base_url,
             model=model,
@@ -136,7 +139,7 @@ class ArduinoClient:
         log.info(f"工程已生成: {output_dir}")
         print(f"工程已生成: {output_dir}")
         
-        return output_dir
+        return output_dir, requirement_analysis
     
     def build(
         self,
@@ -235,7 +238,7 @@ class ArduinoClient:
         
         # 生成代码
         prompt = f"用 Arduino {board_type} 做一个 LED 闪烁，{pin} 号引脚，每 {interval} 毫秒闪烁一次"
-        project_dir = self.generate(prompt, "blink_demo")
+        project_dir, _ = self.generate(prompt, "blink_demo")
         
         # 编译
         result = self.build(project_dir, fqbn)

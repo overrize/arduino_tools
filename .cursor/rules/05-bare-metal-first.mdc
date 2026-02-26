@@ -1,0 +1,54 @@
+---
+description: 核心开发原则 - 功能优先、零依赖实现
+globs: ["arduino_projects/**/*.ino", "arduino-client/**/*.py"]
+alwaysApply: true
+---
+
+# 功能优先、零依赖 (Bare-Metal First)
+
+## 原则
+
+Arduino 代码生成和调试必须遵循以下优先级：
+
+1. **先让功能跑起来** — 使用最简单的实现，确保硬件能响应
+2. **零依赖优先** — 不依赖第三方库（U8g2, Adafruit, RTClib 等）
+3. **优化留给用户** — 功能验证通过后，用户可选择引入库提升性能
+
+## 外设实现策略
+
+| 外设类型 | 正确做法 | 错误做法 |
+|----------|----------|----------|
+| I2C 设备 (OLED/传感器) | 软件 I2C (bit-bang GPIO) | Wire 库 (引脚限制多) |
+| OLED 显示 | 直接发送控制器命令 + 自带字体 | U8g2/Adafruit_SSD1306 |
+| SPI 设备 | 软件 SPI (bit-bang) | SPI 库 |
+| 温湿度传感器 | 直接实现协议 (单总线/I2C) | DHT 库 |
+| 定时器 | millis() 逻辑 | 第三方定时器库 |
+
+## setup() 必须包含
+
+1. `Serial.begin(115200)` — 调试输出
+2. I2C 总线扫描 — 确认设备地址
+3. 每个组件的独立初始化验证（通过 Serial 输出结果）
+
+## 已知平台陷阱
+
+### RP2040 (Pico / mbed_rp2040)
+- `Wire` 库不支持自定义 I2C 引脚 → 必须用软件 I2C
+- `I2C_SDA` / `I2C_SCL` 是平台宏 → 变量名用 `OLED_SDA` / `OLED_SCL`
+- `tone()` 可能不可用 → 用 `analogWrite` + PWM 替代
+- `digitalWrite` 经过 mbed HAL 很慢 (~1.5µs) → 对性能敏感的场景用 SIO 寄存器
+
+### ESP32
+- `Wire` 可用但双 I2C 总线行为不一致 → 软件 I2C 更可靠
+- ADC2 与 WiFi 冲突 → 使用 ADC1 通道
+
+### AVR (Uno/Nano)
+- RAM 只有 2KB → 避免大型库和缓冲区
+- Flash 32KB → 库会快速耗尽空间
+
+## 调试流程
+
+1. 最小化验证：先只测一个组件（如只点亮 LED）
+2. 逐步叠加：确认一个组件后加入下一个
+3. 诊断输出：用 Serial + LED 闪烁编码状态
+4. I2C 设备：先扫描地址 → 再发 0xA5 全亮测试 → 最后写真实内容

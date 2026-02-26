@@ -69,7 +69,9 @@ class BoardDetector:
                 [self.cli_path, "version"],
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=5,
+                encoding="utf-8",
+                errors="replace",
             )
             return result.returncode == 0
         except:
@@ -90,7 +92,9 @@ class BoardDetector:
                 [self.cli_path, "board", "list", "--format", "json"],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
+                encoding="utf-8",
+                errors="replace",
             )
             
             if result.returncode != 0:
@@ -120,13 +124,8 @@ class BoardDetector:
                             fqbn=board.get("fqbn"),
                             name=board.get("name")
                         )
-                        
-                        if verify_connection:
-                            if self._verify_board_connection(port):
-                                boards.append(board_info)
-                                log.info(f"检测到板卡: {board_info.name} at {port}")
-                        else:
-                            boards.append(board_info)
+                        boards.append(board_info)
+                        log.info(f"检测到板卡: {board_info.name} at {port}")
             # 处理旧 JSON 格式 (arduino-cli 0.x)
             else:
                 for item in data:
@@ -140,12 +139,7 @@ class BoardDetector:
                             fqbn=board.get("fqbn"),
                             name=board.get("name")
                         )
-                        
-                        if verify_connection:
-                            if self._verify_board_connection(port):
-                                boards.append(board_info)
-                        else:
-                            boards.append(board_info)
+                        boards.append(board_info)
             
             log.info(f"检测到 {len(boards)} 个板卡")
             return boards
