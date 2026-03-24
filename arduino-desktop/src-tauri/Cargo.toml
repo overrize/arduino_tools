@@ -1,0 +1,32 @@
+[package]
+name = "arduino-desktop"
+version = "0.1.0"
+description = "Arduino Desktop - AI-powered Arduino development tool"
+authors = ["Arduino Tools Team"]
+license = "MIT"
+repository = ""
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "1.5", features = [] }
+
+[dependencies]
+tauri = { version = "1.5", features = [ "fs-all", "notification-all", "path-all", "shell-open", "process-all"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+reqwest = { version = "0.11", features = ["json"] }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.0", features = ["v4"] }
+dirs = "5.0"
+which = "5.0"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+strip = true

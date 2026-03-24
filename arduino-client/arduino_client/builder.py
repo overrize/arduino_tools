@@ -66,7 +66,7 @@ LIB_NAME_NORMALIZE = {
 
 class Builder:
     """Arduino 项目编译器"""
-    
+
     def __init__(self, detector: Optional[BoardDetector] = None):
         self.detector = detector or BoardDetector()
 
@@ -141,12 +141,12 @@ class Builder:
         build_path: Optional[Path] = None
     ) -> CompileResult:
         """编译 Arduino 工程
-        
+
         Args:
             sketch_path: 工程文件 (.ino) 路径或所在目录
             fqbn: 板卡 FQBN
             build_path: 可选，编译输出目录（默认 sketch_dir/build）
-            
+
         Returns:
             编译结果
         """
@@ -156,16 +156,16 @@ class Builder:
                 sketch_dir = sketch_path.parent
             else:
                 sketch_dir = sketch_path
-            
+
             # 未指定时使用 sketch_dir/build
             if build_path is None:
                 build_path = sketch_dir / "build"
-            
+
             # 创建编译目录
             build_path.mkdir(parents=True, exist_ok=True)
-            
+
             log.info(f"编译工程: {sketch_dir} for {fqbn}")
-            
+
             # 使用指定 build 路径编译
             result = subprocess.run(
                 [
@@ -180,15 +180,15 @@ class Builder:
                 encoding="utf-8",
                 errors="replace",
             )
-            
+
             success = result.returncode == 0
             output = (result.stdout or "") + (result.stderr or "")
-            
+
             if success:
                 log.info(f"编译成功: {sketch_dir}")
             else:
                 log.error(f"编译失败: {sketch_dir}")
-            
+
             errors = []
             if not success:
                 # 解析错误信息
@@ -196,7 +196,7 @@ class Builder:
                     if 'error:' in line.lower():
                         errors.append(line.strip())
                         log.debug(f"编译错误: {line.strip()}")
-            
+
             return CompileResult(
                 success=success,
                 output=output,

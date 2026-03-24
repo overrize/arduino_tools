@@ -53,9 +53,9 @@ def main() -> int:
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument("-C", "--work-dir", type=Path, default=Path.cwd(), help="工作目录")
     parser.add_argument("-v", "--verbose", action="store_true", help="输出 DEBUG 日志")
-    
+
     sub = parser.add_subparsers(dest="cmd", required=False)
-    
+
     # gen — 生成代码
     p_gen = sub.add_parser("gen", help="根据自然语言生成工程")
     p_gen.add_argument("prompt", help="需求描述，如：用 Arduino Uno 做一个 LED 闪烁，13 号引脚")
@@ -65,26 +65,26 @@ def main() -> int:
     p_gen.add_argument("--flash", action="store_true", help="编译后烧录")
     p_gen.add_argument("--fqbn", type=str, help="板卡 FQBN（如 arduino:avr:uno），未指定时自动检测")
     p_gen.set_defaults(func=_cmd_gen)
-    
+
     # detect — 检测板卡
     p_detect = sub.add_parser("detect", help="检测已连接的 Arduino 板卡")
     p_detect.add_argument("--type", type=str, help="按类型检测（如 'uno', 'pico', 'nano'）")
     p_detect.set_defaults(func=_cmd_detect)
-    
+
     # build — 编译
     p_build = sub.add_parser("build", help="编译工程")
     p_build.add_argument("project", type=Path, help="工程目录")
     p_build.add_argument("--fqbn", type=str, required=True, help="板卡 FQBN（如 arduino:avr:uno）")
     p_build.add_argument("--flash", action="store_true", help="编译后烧录")
     p_build.set_defaults(func=_cmd_build)
-    
+
     # upload — 上传
     p_upload = sub.add_parser("upload", help="上传固件到板卡")
     p_upload.add_argument("project", type=Path, help="工程目录")
     p_upload.add_argument("--fqbn", type=str, required=True, help="板卡 FQBN")
     p_upload.add_argument("--port", type=str, help="串口，未指定时自动检测")
     p_upload.set_defaults(func=_cmd_upload)
-    
+
     # demo — Demo
     p_demo = sub.add_parser("demo", help="运行 Demo")
     p_demo.add_argument("scenario", choices=["blink"], help="Demo 场景")
@@ -93,11 +93,11 @@ def main() -> int:
     p_demo.add_argument("--interval", type=int, default=1000, help="闪烁间隔毫秒（默认: 1000）")
     p_demo.add_argument("--flash", action="store_true", help="自动上传")
     p_demo.set_defaults(func=_cmd_demo)
-    
+
     # setup — 配置向导
     p_setup = sub.add_parser("setup", help="交互式配置向导（首次使用推荐）")
     p_setup.set_defaults(func=_cmd_setup)
-    
+
     # interactive — 交互式终端（可停留的菜单客户端）
     p_interactive = sub.add_parser(
         "interactive",
@@ -105,24 +105,24 @@ def main() -> int:
         help="进入交互式终端（菜单驱动，类似可停留的客户端）",
     )
     p_interactive.set_defaults(func=_cmd_interactive)
-    
+
     args = parser.parse_args()
     if getattr(args, "verbose", False):
         logging.getLogger("arduino_client").setLevel(logging.DEBUG)
-    
+
     # setup 命令不依赖 arduino-cli，仅配置 LLM API
     if args.cmd == "setup":
         success = setup_config(Path(args.work_dir))
         return 0 if success else 1
-    
+
     # interactive 命令不依赖 arduino-cli 即可进入（内部按需创建 Client）
     if args.cmd == "interactive":
         return run_interactive(Path(args.work_dir))
-    
+
     # 无子命令时直接进入交互式终端（首次安装即可在菜单中选 1 完成配置）
     if args.cmd is None:
         return run_interactive(Path(args.work_dir))
-    
+
     # 其他命令需要 ArduinoClient（会检查 arduino-cli）
     client = ArduinoClient(work_dir=args.work_dir)
     return args.func(client, args)
@@ -152,13 +152,13 @@ def _cmd_gen(client: ArduinoClient, args) -> int:
             print("运行 arduino-client setup 进行交互式配置\n")
         print(SETUP_INSTRUCTIONS)
         return 1
-    
+
     output_dir = args.output
     if output_dir is None:
         from . import _paths
         projects_dir = _paths.get_projects_dir(client.work_dir)
         output_dir = projects_dir / "arduino_projects" / args.project_name
-    
+
     # 生成代码
     try:
         project_dir, _ = client.generate(args.prompt, args.project_name, output_dir=output_dir)
@@ -166,7 +166,7 @@ def _cmd_gen(client: ArduinoClient, args) -> int:
     except Exception as e:
         print(f"生成失败: {e}", file=sys.stderr)
         return 1
-    
+
     # 编译（如果需要）
     if args.build or args.flash:
         # 确定 FQBN
@@ -189,7 +189,7 @@ def _cmd_gen(client: ArduinoClient, args) -> int:
                     print("未检测到板卡，请指定 --fqbn", file=sys.stderr)
                     return 1
                 fqbn = boards[0].fqbn or "arduino:avr:uno"
-        
+
         max_fix_rounds = 3
         for attempt in range(max_fix_rounds + 1):
             label = "重新编译" if attempt > 0 else "编译"
@@ -220,7 +220,7 @@ def _cmd_gen(client: ArduinoClient, args) -> int:
             except Exception as e:
                 print(f"编译错误: {e}", file=sys.stderr)
                 return 1
-        
+
         # 上传（如果需要）
         if args.flash:
             boards = client.detect_boards()
@@ -238,7 +238,7 @@ def _cmd_gen(client: ArduinoClient, args) -> int:
             except Exception as e:
                 print(f"上传错误: {e}", file=sys.stderr)
                 return 1
-    
+
     return 0
 
 
@@ -251,7 +251,7 @@ def _cmd_detect(client: ArduinoClient, args) -> int:
         use_rich = True
     except ImportError:
         use_rich = False
-    
+
     if args.type:
         board = client.detect_board_by_type(args.type)
         if not board:
@@ -260,7 +260,7 @@ def _cmd_detect(client: ArduinoClient, args) -> int:
             else:
                 print(f"未检测到 {args.type} 板卡", file=sys.stderr)
             return 1
-        
+
         if use_rich:
             table = Table(title=f"找到 {args.type} 板卡", show_header=True, header_style="bold cyan")
             table.add_column("属性", style="cyan")
@@ -286,7 +286,7 @@ def _cmd_detect(client: ArduinoClient, args) -> int:
             else:
                 print("未检测到 Arduino 板卡", file=sys.stderr)
             return 1
-        
+
         if use_rich:
             table = Table(title=f"检测到 {len(boards)} 个板卡", show_header=True, header_style="bold cyan")
             table.add_column("序号", style="cyan", width=6)
@@ -316,7 +316,7 @@ def _cmd_build(client: ArduinoClient, args) -> int:
     """编译命令"""
     project_dir = args.project if Path(args.project).is_absolute() else client.work_dir / args.project
     project_dir = Path(project_dir).resolve()
-    
+
     try:
         result = client.build(project_dir, args.fqbn)
         if result.success:
@@ -338,7 +338,7 @@ def _cmd_build(client: ArduinoClient, args) -> int:
     except Exception as e:
         print(f"编译错误: {e}", file=sys.stderr)
         return 1
-    
+
     return 0
 
 
@@ -346,7 +346,7 @@ def _cmd_upload(client: ArduinoClient, args) -> int:
     """上传命令"""
     project_dir = args.project if Path(args.project).is_absolute() else client.work_dir / args.project
     project_dir = Path(project_dir).resolve()
-    
+
     try:
         result = client.upload(project_dir, args.fqbn, port=args.port)
         if result.success:
@@ -357,7 +357,7 @@ def _cmd_upload(client: ArduinoClient, args) -> int:
     except Exception as e:
         print(f"上传错误: {e}", file=sys.stderr)
         return 1
-    
+
     return 0
 
 

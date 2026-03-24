@@ -1,384 +1,148 @@
-# 🚀 Arduino Tools 项目
+# Arduino Tools
 
-> 自然语言驱动的 Arduino 端到端开发工具
+> 自然语言驱动的 Arduino 端到端开发工具 — 从想法到闪烁的 LED，只需要一句话
 
-## 📚 文档说明
-
-本项目包含两个 README 文件：
-
-- **`README.md`**（本文件）- 项目总览，介绍整个工具集（Client + MCP Server）
-- **`arduino-client/README.md`** - Client 工具的详细文档，包含完整的使用说明、API 文档等
-
-> 💡 **建议**：快速开始请查看本文件，深入了解 Client 工具请查看 `arduino-client/README.md`
-
-## 🎯 项目概述
-
-这是一个创新的 Arduino 开发工具集，提供两种使用方式：
-1. **独立 Client 工具**（推荐）⭐ - 不依赖 kiro，使用 LLM API 生成代码
-2. **MCP Server** - 通过 kiro 使用，模板驱动代码生成
-
-让用户通过**自然语言描述**就能完成 Arduino 嵌入式开发的完整流程。
-
-### 核心价值
-
-**问题**: AI 写代码很强，但在嵌入式开发上遇到挑战
-- 🔧 物理世界复杂（硬件、时序、电气特性）
-- 🔄 反馈链路长（编译→烧录→测试→调试）
-- 🤔 上下文缺失（不知道硬件连接方式）
-- 🐛 错误诊断难（软硬件问题难区分）
-
-**解决方案**: Arduino Tools
-- 🗣️ 自然语言输入 - 用对话描述需求
-- 🤖 自动代码生成 - LLM API 或模板驱动两种方式
-- ⚡ 一键编译上传 - 端到端自动化
-- 🎉 立即看到结果 - 快速反馈循环
-
-### ✨ 示例
+## 工作流程
 
 ```
-用户: "用 Arduino Uno 做一个 LED 闪烁，13 号引脚，每秒闪一次"
-
-系统自动完成:
-  ✅ 解析意图 → Board: Uno, Pin: 13, Interval: 1000ms
-  ✅ 生成代码 → led_blink.ino
-  ✅ 编译项目 → 成功
-  ✅ 检测板子 → COM3
-  ✅ 上传代码 → 成功
-  ✅ 监控输出 → "LED ON" / "LED OFF"
-  
-结果: LED 开始闪烁！⚡
+描述需求 → 自动检测板卡 → AI 生成代码 → 编译 → 烧录/仿真 → 串口验证
 ```
 
-**从想法到闪烁的 LED，只需要一句话！**
+启动后进入端到端线性流程：用户只需描述需求，其余全部自动完成。
+如果没有检测到物理板卡，自动切换到 Wokwi 仿真。
 
-## 📁 项目结构
+## 三个版本
 
-```
-.
-├── plans/
-│   └── 2026-02-01-arduino-mcp-server-design.md  # 完整设计文档
-│
-├── arduino-mcp-server/                           # MCP Server 版本（依赖 kiro）
-│   ├── src/arduino_mcp_server/
-│   │   ├── server.py          # MCP Server 主入口
-│   │   ├── models.py          # 数据模型
-│   │   ├── templates.py       # 代码模板
-│   │   ├── arduino_cli.py     # CLI 封装
-│   │   └── code_generator.py  # 代码生成
-│   │
-│   └── ...
-│
-├── arduino-client/                                # ⭐ 独立 Client 工具（推荐）
-│   ├── arduino_client/         # Client 包
-│   │   ├── client.py           # ArduinoClient 可编程 API
-│   │   ├── cli.py              # CLI 入口
-│   │   ├── code_generator.py   # LLM 代码生成
-│   │   └── ...                 # 其他模块
-│   ├── docs/                   # 文档和 Skills
-│   └── README.md               # Client 工具说明
-│
-├── arduino-cli/                                  # CLI 工具（Kiro 集成）
-│   └── ...
-│
-├── docs/                                         # 项目文档
-└── README.md                                     # 本文件
-```
+| 功能 | CLI (Python) | Desktop (Tauri) | Web (React) |
+|------|:---:|:---:|:---:|
+| 自然语言输入 | ✅ | ✅ | ✅ |
+| AI 代码生成 | ✅ | ✅ | ✅ |
+| 本地编译 | ✅ | ✅ | — |
+| 板卡烧录 | ✅ | ✅ | — |
+| 串口监控 | ✅ | ✅ | — |
+| Wokwi 仿真 | ✅ | — | — |
+| ZIP 导出 | — | ✅ | ✅ |
+| 安装要求 | Python 3.9+ | 可执行文件 | 浏览器 |
 
-## 🚀 快速开始
+## 快速开始
 
-### 方式一：独立 Client 工具（推荐）⭐
+### CLI 工具（推荐）
 
 ```bash
-# 1. 在项目根目录安装（无需进入子目录）
-pip install -e arduino-client/
+# 安装
+pip install -e arduino-client/[ui]
 
-# 2. 首次使用：直接运行（无参数）进入交互式终端
+# 启动端到端流程
+arduino-client
+# 或
 python -m arduino_client
-# 或 arduino-client
-
-# 3. 在菜单中选 1 完成 LLM API 配置，选 2～6 检测板卡、生成代码、编译上传
-# 或退出后使用单条命令：arduino-client gen "LED 闪烁" blink_demo --build --flash
 ```
 
-**特点**：
-- ✅ 独立工具，不依赖 kiro
-- ✅ 使用 LLM API 生成代码（更灵活）
-- ✅ 支持 CLI 和 Python API 两种方式
-- ✅ **首次安装即进交互终端**：无参数运行即可在菜单中选 1 完成配置，无需先敲 setup
-- ✅ 参考 STloop 架构设计
-- ✅ 可选终端 UI 支持（安装 `arduino-client[ui]` 获得更好体验）
+启动后自动显示 splash → 检查 LLM 配置 → 等待用户描述需求 → 自动完成全流程。
 
-**提示**：
-- 安装后直接运行 `arduino-client` 或 `python -m arduino_client` 会进入交互式终端，菜单第一项为配置 API
-- 配置支持 Kimi K2、OpenAI 等，可保存到当前目录或用户主目录
-
-**如果 `arduino-client` 命令找不到**：
-
-- **方案一（推荐）**：使用 `python -m arduino_client setup` 替代
-
-- **方案二**：运行辅助脚本自动添加 PATH
-
-  **PowerShell 方式**（如果遇到"禁止运行脚本"错误）：
-  ```powershell
-  # 使用 Bypass 执行策略（推荐）
-  powershell -ExecutionPolicy Bypass -File .\arduino-client\scripts\add_to_path.ps1
-  
-  # 或临时修改执行策略
-  Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
-  .\arduino-client\scripts\add_to_path.ps1
-  ```
-
-  **Windows Batch 方式**（无需修改执行策略）：
-  ```cmd
-  .\arduino-client\scripts\add_to_path.bat
-  ```
-
-  脚本会自动查找 `arduino-client.exe` 的安装位置并添加到用户 PATH，**并自动刷新当前会话的 PATH**（无需重新打开终端）。如果脚本显示 "✓ arduino-client is now available!"，就可以直接使用 `arduino-client` 命令了。
-
-详见：[arduino-client/README.md](arduino-client/README.md)
-
-### 方式二：MCP Server（需要 kiro）
+### CLI 子命令
 
 ```bash
-cd arduino-mcp-server
-pip install -e .
-# 配置 kiro MCP Server
-# 在 kiro 中使用 MCP 工具
+arduino-client                  # 端到端交互模式（默认）
+arduino-client setup             # 配置 LLM API
+arduino-client gen "需求" name   # 单次生成代码
+arduino-client run "需求"        # 端到端自动化（非交互）
+arduino-client build <sketch>    # 编译
+arduino-client upload <sketch>   # 烧录
+arduino-client detect            # 检测板卡
+arduino-client monitor           # 串口监视器
+arduino-client catalog           # 浏览板卡数据库
+arduino-client check             # 环境检查
+arduino-client sim <sketch>      # Wokwi 仿真
+arduino-client demo              # LED 闪烁演示
 ```
 
-**特点**：
-- ✅ 通过 kiro 使用
-- ✅ 模板驱动代码生成（快速可靠）
-- ✅ 适合集成到现有工作流
-
-详见：[arduino-mcp-server/README.md](arduino-mcp-server/README.md)
-
-### 阅读文档
-
-- **[arduino-client/README.md](arduino-client/README.md)** - Client 工具说明（推荐）
-- **[docs/general/GETTING_STARTED.md](docs/general/GETTING_STARTED.md)** - 开始使用指南
-- **[arduino-mcp-server/README.md](arduino-mcp-server/README.md)** - MCP Server 说明
-
-## ✅ 已实现的功能
-
-### 核心功能
-- ✅ 自然语言意图解析
-- ✅ LED 闪烁代码生成（模板 + LLM 两种方式）
-- ✅ arduino-cli 完整封装
-- ✅ 编译、上传、监控一体化
-- ✅ 7 个 MCP 工具（MCP Server 版本）
-- ✅ CLI 和 Python API（Client 版本）
-- ✅ 完整文档体系
-
-### 支持的硬件
-- ✅ Arduino Uno
-- ✅ Arduino Nano
-- ✅ Raspberry Pi Pico
-- ✅ ESP32
-
-### MCP 工具
-1. `check_arduino_cli` - 检查环境
-2. `detect_boards` - 检测板子
-3. `create_led_blink` - 创建 LED 项目
-4. `compile_sketch` - 编译
-5. `upload_sketch` - 上传
-6. `monitor_serial` - 串口监控
-7. `full_workflow_led_blink` - 一键完整工作流
-
-## 📊 测试结果
+### 桌面应用
 
 ```bash
-$ python test_basic.py
-
-✅ Code generation: PASSED
-✅ Intent parsing: PASSED
-⚠️  Arduino CLI: 需要安装 arduino-cli
+cd arduino-desktop
+npm install
+npm run tauri:dev      # 开发模式
+npm run tauri:build    # 构建可执行文件
 ```
 
-生成的代码示例：
-```cpp
-// LED Blink - Generated by Arduino MCP Server
-const int LED_PIN = 13;
+构建产物：`arduino-desktop/src-tauri/target/release/arduino-desktop.exe`
 
-void setup() {
-  pinMode(LED_PIN, OUTPUT);
-  Serial.begin(9600);
-  Serial.println("LED Blink Started");
-}
+### Web 版本
 
-void loop() {
-  digitalWrite(LED_PIN, HIGH);
-  Serial.println("LED ON");
-  delay(1000);
-  
-  digitalWrite(LED_PIN, LOW);
-  Serial.println("LED OFF");
-  delay(1000);
-}
+```bash
+cd arduino-web
+npm install
+npm run dev            # 开发模式
+npm run build          # 构建静态站点
 ```
 
-## 🎨 技术亮点
+## 项目结构
 
-### 1. 两种代码生成方式
-
-#### Client 工具：LLM API 生成
-- ✅ 灵活性高 - 可处理复杂需求
-- ✅ 智能化 - AI 理解自然语言
-- ✅ 无需维护模板 - 自动生成代码
-- ✅ 支持多种 LLM - OpenAI、Kimi 等
-
-#### MCP Server：模板驱动生成
-- ✅ 可靠性高 - 保证代码质量
-- ✅ 速度快 - 无需 API 调用
-- ✅ 零成本 - 不依赖外部服务
-- ✅ 易维护 - 模板清晰易懂
-
-### 2. arduino-cli 封装
-- ✅ 标准化 - 官方工具
-- ✅ 跨平台 - Windows/Mac/Linux
-- ✅ 功能完整 - 编译、上传、监控
-- ✅ 稳定可靠 - 官方维护
-
-### 3. 两种使用方式
-- **Client 工具**: 独立使用，CLI 或 Python API
-- **MCP Server**: 通过 kiro 集成到工作流
-
-### 4. 清晰的架构
 ```
-用户输入 → 意图解析 → 代码生成（LLM/模板） → 编译上传 → 串口监控
+arduino_tools/
+├── arduino-client/          # CLI 工具 (Python + Rich)
+│   ├── arduino_client/
+│   │   ├── ui/              # Rich UI 组件（主题、面板、进度条）
+│   │   ├── cli_rich.py      # Rich CLI 入口（12 个子命令）
+│   │   ├── interactive_rich.py  # 端到端交互流程
+│   │   ├── client.py        # ArduinoClient 核心 API
+│   │   ├── code_generator.py    # LLM 代码生成
+│   │   ├── builder.py       # arduino-cli 编译封装
+│   │   ├── board_detector.py    # 板卡自动检测
+│   │   └── setup.py         # 配置向导
+│   └── pyproject.toml
+│
+├── arduino-desktop/         # 桌面应用 (Tauri + React)
+│   ├── src/                 # React 前端
+│   └── src-tauri/           # Rust 后端
+│
+├── arduino-web/             # Web 版本 (React + Vite)
+│   └── src/
+│
+├── arduino-mcp-server/      # MCP Server（Kiro 集成，早期版本）
+├── build-desktop.bat        # 桌面版构建脚本
+└── build-web.bat            # Web 版构建脚本
 ```
 
-## 💡 核心洞察
+## 系统要求
 
-### 为什么这个方案有效？
+### CLI
+- Python 3.9+
+- arduino-cli
+- LLM API Key（Kimi / OpenAI / 兼容 API）
+- 可选：`pip install -e arduino-client/[ui]` 安装 Rich 终端 UI
 
-> **让 AI 专注于理解用户意图，让工具链处理技术细节**
+### Desktop 额外要求
+- Node.js 18+
+- Rust + Cargo
 
-1. **降低认知负担** - 用户不需要了解 arduino-cli、FQBN、端口选择
-2. **缩短反馈循环** - 从想法到结果 < 20 秒
-3. **渐进式复杂度** - 从简单的 LED 开始，逐步扩展
-4. **AI + 工具链结合** - AI 理解意图，工具链保证可靠性
+### Web
+- 现代浏览器
+- LLM API Key
 
-## 📈 性能指标
+## 技术栈
 
-### Client 工具（LLM API）
-- 代码生成: 2-5s（取决于 LLM API 响应时间）
-- 编译时间: 5-10s
-- 上传时间: 2-3s
-- **端到端: < 30s** 🚀
-
-### MCP Server（模板驱动）
-- 代码生成: < 100ms ⚡
-- 编译时间: 5-10s
-- 上传时间: 2-3s
-- **端到端: < 20s** 🚀
-
-## 🔮 下一步计划
-
-### Phase 2: 扩展组件（1-2 周）
-- [ ] 按钮输入
-- [ ] DHT22 温湿度传感器
-- [ ] 超声波传感器
-- [ ] 舵机控制
-
-### Phase 3: 智能化（2-3 周）
-- [ ] LLM 辅助意图解析
-- [ ] 错误诊断和修复建议
-- [ ] 引脚冲突检测
-
-### Phase 4: 用户体验（1-2 周）
-- [ ] 接线图生成
-- [ ] 实时数据可视化
-- [ ] 项目管理
-
-## 📚 文档导航
-
-详细文档已整理到 `docs/` 目录：
-
-- **[文档索引](docs/README.md)** - 完整文档导航
-- **[快速开始](docs/general/GETTING_STARTED.md)** - 新用户指南
-- **[Kiro 使用](docs/general/HOW_TO_USE_IN_KIRO.md)** - Kiro 集成指南
-- **[项目总结](docs/mcp-server/PROJECT_SUMMARY.md)** - 项目概览
-
-### 按功能查找
-
-- **Client 工具**: [arduino-client/](arduino-client/) ⭐ 推荐
-- **MCP Server**: [arduino-mcp-server/](arduino-mcp-server/) 和 [docs/mcp-server/](docs/mcp-server/)
-- **CLI Tool**: [arduino-cli/](arduino-cli/) 和 [docs/cli-tool/](docs/cli-tool/)
-- **板卡检测**: [docs/detection/](docs/detection/)
-- **Wokwi 仿真**: [docs/wokwi/](docs/wokwi/)
-- **通用指南**: [docs/general/](docs/general/)
-
-### 核心文档
-
-#### Client 工具文档（推荐）⭐
-- [arduino-client/README.md](arduino-client/README.md) - Client 工具概述
-- [arduino-client/QUICK_START.md](arduino-client/QUICK_START.md) - 快速开始
-- [arduino-client/docs/LESSONS.md](arduino-client/docs/LESSONS.md) - 开发经验
-- [arduino-client/docs/skills/](arduino-client/docs/skills/) - Cursor Skills
-
-#### MCP Server 文档
-- [arduino-mcp-server/README.md](arduino-mcp-server/README.md) - MCP Server 概述
-- [arduino-mcp-server/QUICKSTART.md](arduino-mcp-server/QUICKSTART.md) - 5 分钟快速上手
-- [arduino-mcp-server/USAGE.md](arduino-mcp-server/USAGE.md) - 详细使用指南
-- [arduino-mcp-server/examples/example-conversations.md](arduino-mcp-server/examples/example-conversations.md) - 对话示例
-
-#### 开发文档
-- [REFACTOR_COMPLETE.md](REFACTOR_COMPLETE.md) - 重构完成说明
-- [plans/2026-02-01-arduino-mcp-server-design.md](plans/2026-02-01-arduino-mcp-server-design.md) - 设计文档
-
-## 🎓 经验总结
-
-### 做得好的地方
-1. ✅ 清晰的问题定义
-2. ✅ 模块化设计
-3. ✅ 完善的文档
-4. ✅ 快速验证 MVP
-
-### 关键收获
-- **技术**: 模板驱动和 LLM API 两种方式各有优势
-- **产品**: 端到端体验很重要
-- **方法**: 从最简单的场景开始
-- **架构**: 独立 Client 工具更灵活，参考 STloop 设计
-
-## 🎯 成功标准
-
-| 标准 | 状态 |
+| 层级 | 技术 |
 |------|------|
-| 自然语言输入 | ✅ |
-| 自动生成代码 | ✅ |
-| 自动编译 | ✅ |
-| 自动上传 | ✅ |
-| 串口监控 | ✅ |
-| 支持 3 种板型 | ✅ |
-| 端到端 < 2 分钟 | ✅ |
+| CLI | Python + Rich + pyserial |
+| CLI UI | Arduino 品牌主题 (teal #00979D) |
+| Desktop | Tauri + React + TypeScript |
+| Web | React + Vite + TypeScript |
+| 编译工具 | arduino-cli |
+| 仿真 | wokwi-cli |
+| LLM | OpenAI 兼容 API |
 
-## 🙏 致谢
+## 设计原则
 
-- Arduino 团队：arduino-cli 工具
-- MCP 团队：优秀的协议设计
-- 开源社区：各种优秀的库
+- **端到端线性流程**：不使用菜单，用户只需描述需求
+- **自动化优先**：板卡检测、编译、烧录、验证全部自动
+- **无板自动仿真**：未检测到板卡时自动切换 Wokwi
+- **自动修复**：编译失败自动 LLM 重新生成（最多 3 轮）
+- **串口验证**：烧录后自动捕获串口输出，LLM 诊断异常
+- **Rich 可选**：所有 Rich UI 为可选依赖，纯文本 fallback 始终可用
+- **与 STLoop 对齐**：同一产品线，交互体验保持一致
 
-## 📞 反馈
+## 许可证
 
-欢迎反馈和建议！
-
----
-
-**项目状态**: ✅ MVP 完成 + ✅ Client 工具重构完成  
-**创建日期**: 2026-02-01  
-**最后更新**: 2026-02-12
-
-🎉 **从想法到闪烁的 LED，只需要一句话！**
-
----
-
-## 📝 最近更新（2026-02-12）
-
-- ✨ 新增独立 Client 工具（`arduino-client/`）
-- 🔄 从 MCP Server 重构为独立工具
-- 🤖 使用 LLM API 生成代码（替代模板）
-- 📚 添加完整文档和 Cursor Skills
-- 📖 更新主 README，说明两种使用方式
-
-详见：[REFACTOR_COMPLETE.md](REFACTOR_COMPLETE.md)
+MIT

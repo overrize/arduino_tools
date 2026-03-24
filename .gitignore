@@ -26,6 +26,13 @@ htmlcov/
 arduino_projects/
 test_output/
 
+# Node
+node_modules/
+dist/
+
+# Rust / Tauri
+target/
+
 # OS
 .DS_Store
 Thumbs.db
