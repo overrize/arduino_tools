@@ -35,6 +35,11 @@ pub struct LLMConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WokwiConfig {
+    pub token: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EndToEndRequest {
     pub prompt: String,
     pub board: Option<String>,

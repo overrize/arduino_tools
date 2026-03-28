@@ -11,9 +11,10 @@ env/
 .env.local
 .env.*.local
 
-# IDE
+# IDE / AI tools
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Send, Download } from 'lucide-react';
+import { Send, Download, ExternalLink } from 'lucide-react';
 import { Board } from '../types';
 import './InputBox.css';
 
@@ -12,6 +12,7 @@ interface InputBoxProps {
   isGenerating: boolean;
   onSend: () => void;
   onExport: () => void;
+  onOpenInWokwi: () => void;
   hasProject: boolean;
 }
 
@@ -24,6 +25,7 @@ const InputBox: React.FC<InputBoxProps> = ({
   isGenerating,
   onSend,
   onExport,
+  onOpenInWokwi,
   hasProject,
 }) => {
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -52,15 +54,26 @@ const InputBox: React.FC<InputBoxProps> = ({
         </div>
 
         {hasProject && (
-          <button
-            className="export-button"
-            onClick={onExport}
-            disabled={isGenerating}
-            title="导出 ZIP"
-          >
-            <Download size={16} />
-            <span>导出 ZIP</span>
-          </button>
+          <div className="action-buttons">
+            <button
+              className="wokwi-button"
+              onClick={onOpenInWokwi}
+              disabled={isGenerating}
+              title="在 Wokwi 中打开"
+            >
+              <ExternalLink size={16} />
+              <span>Wokwi 仿真</span>
+            </button>
+            <button
+              className="export-button"
+              onClick={onExport}
+              disabled={isGenerating}
+              title="导出 ZIP"
+            >
+              <Download size={16} />
+              <span>导出 ZIP</span>
+            </button>
+          </div>
         )}
       </div>
 

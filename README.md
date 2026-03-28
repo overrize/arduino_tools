@@ -20,7 +20,7 @@
 | 本地编译 | ✅ | ✅ | — |
 | 板卡烧录 | ✅ | ✅ | — |
 | 串口监控 | ✅ | ✅ | — |
-| Wokwi 仿真 | ✅ | — | — |
+| Wokwi 仿真 | ✅ | ✅ | — |
 | ZIP 导出 | — | ✅ | ✅ |
 | 安装要求 | Python 3.9+ | 可执行文件 | 浏览器 |
 
@@ -63,10 +63,41 @@ arduino-client demo              # LED 闪烁演示
 cd arduino-desktop
 npm install
 npm run tauri:dev      # 开发模式
-npm run tauri:build    # 构建可执行文件
+npm run tauri:build    # 构建安装包
 ```
 
-构建产物：`arduino-desktop/src-tauri/target/release/arduino-desktop.exe`
+也可以使用项目根目录的构建脚本：
+
+```bash
+build-desktop.bat dev      # 启动开发模式
+build-desktop.bat build    # 构建发布版本
+```
+
+#### 发布产物
+
+`npm run tauri:build` 会在 `arduino-desktop/src-tauri/target/release/bundle/` 下生成平台对应的安装包：
+
+| 平台 | 产物路径 | 格式 |
+|------|----------|------|
+| Windows | `bundle/msi/*.msi` | MSI 安装包 |
+| Windows | `bundle/nsis/*.exe` | NSIS 安装程序 |
+| macOS | `bundle/dmg/*.dmg` | DMG 镜像 |
+| macOS | `bundle/macos/*.app` | App Bundle |
+| Linux | `bundle/deb/*.deb` | Debian 包 |
+| Linux | `bundle/appimage/*.AppImage` | AppImage |
+
+独立可执行文件：`arduino-desktop/src-tauri/target/release/arduino-desktop(.exe)`
+
+#### Wokwi 仿真
+
+桌面版内置 Wokwi 仿真支持，未检测到物理板卡时自动切换：
+
+- 首次使用自动安装 `wokwi-cli`（通过官方安装脚本）
+- 自动生成 `wokwi.toml` 和 `diagram.json` 配置文件
+- 需在设置中配置 Wokwi Token（从 https://wokwi.com/dashboard/ci 获取）
+- 支持板卡：Arduino Uno / Nano / Mega、Raspberry Pi Pico、ESP32
+
+> **注意**：当前 CI 只包含 Client 和 MCP Server 的测试，桌面端尚未配置自动构建/发布流水线。如需跨平台构建，需在对应平台上分别执行 `npm run tauri:build`。
 
 ### Web 版本
 

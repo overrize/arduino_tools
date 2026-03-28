@@ -36,24 +36,43 @@ export interface DetectedBoard {
   name: string;
 }
 
+export interface DebugResult {
+  success: boolean;
+  diagnosis: string;
+  changes: string;
+  build_success: boolean;
+  upload_success: boolean;
+  message: string;
+}
+
 const INITIAL_MESSAGE: Message = {
   id: 'welcome',
   role: 'assistant',
-  content: '你好！我是 Arduino Desktop。\n\n直接描述你的项目需求，我会自动完成全部流程：\n**检测板卡 → 生成代码 → 编译 → 烧录/仿真**\n\n例如：\n- "LED 闪烁，13号引脚，每秒闪一次"\n- "用温度传感器读取温度并通过串口输出"\n\n如果没有连接板卡，会自动切换到 Wokwi 仿真。',
+  content: '你好！我是 Arduino Desktop。\n\n**只需描述你的项目需求，我会自动完成全部流程：**\n生成代码 → 编译 → 烧录/仿真 → 串口验证\n\n如果功能不正常，告诉我问题，我会自动诊断修复。\n\n例如：\n- "用 pico 做 LED 闪烁，GP10 引脚"\n- "用温度传感器读取温度并通过串口输出"\n\n如果没有连接板卡，会自动切换到 Wokwi 仿真（首次使用会自动安装 wokwi-cli）。',
   timestamp: Date.now(),
 };
+
+type AppState = 
+  | 'idle'           // 等待用户输入需求
+  | 'running_e2e'    // 执行端到端流程
+  | 'waiting_verify' // 等待用户验证（按Enter或描述问题）
+  | 'auto_fixing';   // 自动修复中
 
 function App() {
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
   const [input, setInput] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [appState, setAppState] = useState<AppState>('idle');
+  const [isProcessing, setIsProcessing] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [taskStatus, setTaskStatus] = useState<string | null>(null);
   const [taskLogs, setTaskLogs] = useState<string[]>([]);
   const [detectedBoard, setDetectedBoard] = useState<DetectedBoard | null>(null);
+  const [serialOutput, setSerialOutput] = useState('');
+  const [fixRound, setFixRound] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const simulationOutputRef = useRef<string>('');
 
   useEffect(() => {
     loadProjects();
@@ -67,12 +86,16 @@ function App() {
       setTaskLogs(prev => [...prev, event.payload]);
     });
 
-    // Re-detect board every 10 seconds
+    const unlistenSimOutput = listen('simulation-output', (event: any) => {
+      simulationOutputRef.current = event.payload as string;
+    });
+
     const detectInterval = setInterval(autoDetectBoard, 10000);
 
     return () => {
       unlistenStatus.then(fn => fn());
       unlistenLog.then(fn => fn());
+      unlistenSimOutput.then(fn => fn());
       clearInterval(detectInterval);
     };
   }, []);
@@ -109,20 +132,115 @@ function App() {
     return newMessage.id;
   }, []);
 
-  const handleSendMessage = async () => {
-    if (!input.trim() || isGenerating) return;
+  // 自动采集串口
+  const captureSerial = async (port: string): Promise<string> => {
+    try {
+      const result = await invoke<{
+        success: boolean;
+        data: string;
+        error?: string;
+      }>('capture_serial_output', {
+        port: port,
+        baudRate: 115200,
+        durationSecs: 8,
+      });
 
-    const userInput = input;
-    addMessage({ role: 'user', content: userInput });
-    setInput('');
-    setIsGenerating(true);
+      if (result.success) {
+        return result.data;
+      }
+      return '';
+    } catch {
+      return '';
+    }
+  };
+
+  // 自动修复流程
+  const runAutoFix = async (issueDescription: string) => {
+    if (!currentProject) return;
+
+    setAppState('auto_fixing');
+    setTaskStatus('diagnosing');
+    setTaskLogs([]);
+    setIsProcessing(true);
+
+    const loadingId = addMessage({
+      role: 'assistant',
+      content: `🔧 第 ${fixRound + 1}/5 轮自动修复...\n\n问题：${issueDescription}`,
+      isLoading: true,
+    });
+
+    try {
+      const result = await invoke<DebugResult>('debug_and_fix', {
+        request: {
+          project_id: currentProject.id,
+          issue_description: issueDescription,
+          serial_output: serialOutput,
+        },
+      });
+
+      setMessages(prev => prev.filter(m => m.id !== loadingId));
+
+      if (result.success) {
+        addMessage({
+          role: 'assistant',
+          content: `✅ 自动修复成功！\n\n**诊断**：${result.diagnosis}\n\n**修改**：${result.changes}\n\n代码已更新并重新上传。`,
+        });
+
+        // 重新采集串口
+        if (detectedBoard) {
+          addMessage({
+            role: 'assistant',
+            content: '正在重新采集串口输出验证...',
+          });
+          
+          const newSerialOutput = await captureSerial(detectedBoard.port);
+          setSerialOutput(newSerialOutput);
+          
+          const displayData = newSerialOutput || '（无输出）';
+          addMessage({
+            role: 'assistant',
+            content: `串口输出：\n\n\`\`\`\n${displayData.slice(0, 1500)}\n\`\`\`${newSerialOutput.length > 1500 ? '\n\n... (已截断)' : ''}\n\n功能是否正常？（正常请按 Enter，有问题请描述）`,
+          });
+        } else {
+          addMessage({
+            role: 'assistant',
+            content: '修复完成。功能是否正常？（正常请按 Enter，有问题请描述）',
+          });
+        }
+
+        setAppState('waiting_verify');
+        setFixRound(prev => prev + 1);
+      } else {
+        addMessage({
+          role: 'assistant',
+          content: `⚠️ 自动修复遇到问题\n\n**诊断**：${result.diagnosis}\n\n**修改**：${result.changes}\n\n**状态**：${result.message}\n\n请尝试重新描述需求，或检查硬件连接。`,
+        });
+        setAppState('idle');
+        setFixRound(0);
+      }
+    } catch (error: any) {
+      setMessages(prev => prev.filter(m => m.id !== loadingId));
+      addMessage({ role: 'assistant', content: `❌ 自动修复失败：${error.toString()}` });
+      setAppState('idle');
+      setFixRound(0);
+    } finally {
+      setIsProcessing(false);
+      setTaskStatus(null);
+    }
+  };
+
+  // 端到端流程（生成→编译→烧录→采集）
+  const runEndToEnd = async (userInput: string) => {
+    setAppState('running_e2e');
+    setIsProcessing(true);
     setTaskStatus('detecting');
     setTaskLogs([]);
+    setFixRound(0);
 
     const loadingId = addMessage({
       role: 'assistant',
       content: detectedBoard
-        ? `检测到板卡: ${detectedBoard.name} (${detectedBoard.port})\n正在执行端到端流程...`
+        ? `检测到板卡：${detectedBoard.name} (${detectedBoard.port})\n正在执行端到端流程...`
         : '未检测到板卡，将使用仿真模式。\n正在执行端到端流程...',
       isLoading: true,
     });
@@ -137,95 +255,125 @@ function App() {
       });
 
       setMessages(prev => prev.filter(m => m.id !== loadingId));
-
-      const method = detectedBoard ? `已烧录到 ${detectedBoard.name}` : '已通过 Wokwi 仿真';
-      addMessage({
-        role: 'assistant',
-        content: `✅ 端到端流程完成！\n\n**项目**: ${project.name}\n**板卡**: ${project.board}\n**部署**: ${method}\n\n代码已生成并保存到项目列表。`,
-      });
-
       setCurrentProject(project);
       await loadProjects();
+
+      const method = detectedBoard ? `已烧录到 ${detectedBoard.name}` : '已通过 Wokwi 仿真';
+
+      addMessage({
+        role: 'assistant',
+        content: `✅ 端到端流程完成！\n\n**项目**：${project.name}\n**板卡**：${project.board}\n**部署**：${method}`,
+      });
+
+      if (detectedBoard) {
+        // 真实板卡：采集串口输出
+        addMessage({
+          role: 'assistant',
+          content: '正在采集串口输出进行验证...',
+        });
+
+        const serialData = await captureSerial(detectedBoard.port);
+        setSerialOutput(serialData);
+
+        const displayData = serialData || '（无输出）';
+        addMessage({
+          role: 'assistant',
+          content: `串口输出：\n\n\`\`\`\n${displayData.slice(0, 1500)}\n\`\`\`${serialData.length > 1500 ? '\n\n... (已截断)' : ''}\n\n功能是否正常？（正常请按 Enter，有问题请描述）`,
+        });
+
+        setAppState('waiting_verify');
+      } else {
+        // 仿真模式：展示仿真串口输出
+        const simOutput = simulationOutputRef.current;
+        simulationOutputRef.current = '';
+
+        // 从仿真输出中提取用户固件的串口输出（排除 wokwi-cli 自身 banner）
+        const userLines = simOutput
+          ? simOutput.split('\n').filter(line => {
+              const l = line.trim();
+              return l && !l.startsWith('Wokwi CLI') && !l.startsWith('Connected to') && !l.startsWith('Starting simulation') && !l.startsWith('Timeout:');
+            }).join('\n')
+          : '';
+
+        const displayOutput = userLines || '（无串口输出 — 固件可能未调用 Serial.print）';
+
+        addMessage({
+          role: 'assistant',
+          content: `**Wokwi 仿真结果：**\n\n\`\`\`\n${displayOutput.slice(0, 1500)}\n\`\`\`${userLines.length > 1500 ? '\n\n... (已截断)' : ''}\n\n仿真已在无界面模式下运行，以上是固件的串口输出。\n\n功能是否符合预期？（正常请按 Enter，有问题请描述）`,
+        });
+        setSerialOutput(simOutput);
+        setAppState('waiting_verify');
+      }
     } catch (error: any) {
       setMessages(prev => prev.filter(m => m.id !== loadingId));
       addMessage({
         role: 'assistant',
-        content: `❌ 流程失败：${error.toString()}`,
+        content: `❌ 流程失败：${error.toString()}\n\n请检查：\n1. arduino-cli 是否安装\n2. LLM API 配置是否正确\n3. 板卡连接是否正常`,
       });
+      setAppState('idle');
     } finally {
-      setIsGenerating(false);
+      setIsProcessing(false);
       setTaskStatus(null);
     }
   };
 
-  const handleBuild = async () => {
-    if (!currentProject) return;
+  // 处理用户输入
+  const handleSendMessage = async () => {
+    if (!input.trim() || isProcessing) return;
 
-    setTaskStatus('building');
-    setTaskLogs([]);
+    const userInput = input.trim();
+    addMessage({ role: 'user', content: userInput });
+    setInput('');
 
-    try {
-      await invoke('build_project', {
-        projectDir: currentProject.id,
-        fqbn: currentProject.board,
-      });
-
-      addMessage({
-        role: 'assistant',
-        content: '✅ 构建成功！',
-      });
-    } catch (error: any) {
-      addMessage({
-        role: 'assistant',
-        content: `❌ 构建失败：${error.toString()}`,
-      });
-    } finally {
-      setTaskStatus(null);
-    }
-  };
-
-  const handleFlash = async () => {
-    if (!currentProject) return;
-
-    setTaskStatus('deploying');
-    setTaskLogs([]);
-
-    try {
-      const result = await invoke<any>('flash_project', {
-        projectDir: currentProject.id,
-        fqbn: currentProject.board,
-      });
-
-      const icon = result.success ? '✅' : '⚠️';
-      const methodLabel = result.method === 'flash' ? '烧录' : '仿真';
-      addMessage({
-        role: 'assistant',
-        content: `${icon} ${methodLabel}: ${result.message}`,
-      });
-    } catch (error: any) {
-      addMessage({
-        role: 'assistant',
-        content: `❌ 部署失败：${error.toString()}`,
-      });
-    } finally {
-      setTaskStatus(null);
+    // 根据当前状态处理
+    if (appState === 'waiting_verify') {
+      // 用户正在验证
+      if (!userInput || userInput.toLowerCase() === 'y' || userInput.toLowerCase() === 'yes' || userInput === '正常') {
+        // 验证通过
+        addMessage({
+          role: 'assistant',
+          content: '✅ 验证通过！项目已完成。\n\n如需创建新项目，直接描述新需求即可。',
+        });
+        setAppState('idle');
+        setFixRound(0);
+      } else {
+        // 用户描述问题，进入自动修复
+        if (fixRound >= 5) {
+          addMessage({
+            role: 'assistant',
+            content: '⚠️ 已达到最大修复轮数（5轮）。\n\n建议：\n1. 重新描述需求，换个方式表达\n2. 检查硬件连接\n3. 尝试在 CLI 版本中获得更详细的调试信息',
+          });
+          setAppState('idle');
+          setFixRound(0);
+        } else {
+          await runAutoFix(userInput);
+        }
+      }
+    } else {
+      // 新的端到端流程
+      await runEndToEnd(userInput);
     }
   };
 
   const handleNewProject = () => {
     setCurrentProject(null);
     setMessages([INITIAL_MESSAGE]);
+    setAppState('idle');
     setTaskStatus(null);
     setTaskLogs([]);
+    setFixRound(0);
+    setSerialOutput('');
+    simulationOutputRef.current = '';
   };
 
   const handleSelectProject = async (projectId: string) => {
     try {
       const project = await invoke<Project>('get_project', { projectId });
       setCurrentProject(project);
+      setAppState('idle');
       addMessage({
         role: 'system',
-        content: `已加载项目：${project.name}`,
+        content: `已加载项目：${project.name}\n\n直接发送消息即可重新生成/修改代码。`,
       });
     } catch (error) {
       console.error('Failed to load project:', error);
@@ -241,6 +389,19 @@ function App() {
       }
     } catch (error) {
       console.error('Failed to delete project:', error);
+    }
+  };
+
+  // 根据状态确定输入框提示
+  const getPlaceholder = () => {
+    switch (appState) {
+      case 'waiting_verify':
+        return '功能是否正常？（正常请按 Enter，有问题请描述）';
+      case 'running_e2e':
+      case 'auto_fixing':
+        return '处理中，请稍候...';
+      default:
+        return '描述你的 Arduino 项目需求... (按 Enter 发送)';
     }
   };
 
@@ -273,16 +434,18 @@ function App() {
           <InputBox
             input={input}
             setInput={setInput}
-            isGenerating={isGenerating}
+            isGenerating={isProcessing}
             onSend={handleSendMessage}
-            onBuild={handleBuild}
-            onFlash={handleFlash}
-            hasProject={!!currentProject}
+            placeholder={getPlaceholder()}
           />
         </div>
 
         {taskStatus && (
-          <TaskPanel status={taskStatus} logs={taskLogs} />
+          <TaskPanel
+            status={taskStatus}
+            logs={taskLogs}
+            deployMethod={detectedBoard ? 'flash' : 'simulation'}
+          />
         )}
       </div>
 

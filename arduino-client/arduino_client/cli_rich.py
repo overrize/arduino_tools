@@ -65,8 +65,9 @@ def main() -> int:
     sub = parser.add_subparsers(dest="cmd", required=False)
 
     # chat — 交互式终端（默认）
-    p_chat = sub.add_parser("chat", aliases=["interactive", "i", "shell"],
-                            help="Interactive session (default)")
+    p_chat = sub.add_parser(
+        "chat", aliases=["interactive", "i", "shell"], help="Interactive session (default)"
+    )
     p_chat.set_defaults(func=_cmd_chat)
 
     # setup — 配置向导
@@ -86,14 +87,20 @@ def main() -> int:
     p_gen.set_defaults(func=_cmd_gen)
 
     # run — 端到端自动化
-    p_run = sub.add_parser("run", help="End-to-end automation (generate -> build -> flash -> verify)")
+    p_run = sub.add_parser(
+        "run", help="End-to-end automation (generate -> build -> flash -> verify)"
+    )
     p_run.add_argument("prompt", help="Requirement description")
-    p_run.add_argument("--project-name", default="auto_project", help="Project name (default: auto_project)")
+    p_run.add_argument(
+        "--project-name", default="auto_project", help="Project name (default: auto_project)"
+    )
     p_run.add_argument("--fqbn", type=str, help="Board FQBN")
     p_run.add_argument("--no-flash", action="store_true", help="Skip flashing")
     p_run.add_argument("--no-verify", action="store_true", help="Skip verification")
     p_run.add_argument("--expect", type=str, help="Expected behavior for verification")
-    p_run.add_argument("--max-iter", type=int, default=5, help="Maximum auto-fix iterations (default: 5)")
+    p_run.add_argument(
+        "--max-iter", type=int, default=5, help="Maximum auto-fix iterations (default: 5)"
+    )
     p_run.set_defaults(func=_cmd_run)
 
     # detect — 检测板卡
@@ -114,7 +121,9 @@ def main() -> int:
     p_upload.add_argument("project", type=Path, help="Project directory")
     p_upload.add_argument("--fqbn", type=str, required=True, help="Board FQBN")
     p_upload.add_argument("--port", type=str, help="Serial port (auto-detect if omitted)")
-    p_upload.add_argument("--monitor", action="store_true", help="Start serial monitor after upload")
+    p_upload.add_argument(
+        "--monitor", action="store_true", help="Start serial monitor after upload"
+    )
     p_upload.set_defaults(func=_cmd_upload)
 
     # demo
@@ -122,14 +131,19 @@ def main() -> int:
     p_demo.add_argument("scenario", choices=["blink"], help="Demo scenario")
     p_demo.add_argument("--board", type=str, default="uno", help="Board type (default: uno)")
     p_demo.add_argument("--pin", type=int, default=13, help="LED pin (default: 13)")
-    p_demo.add_argument("--interval", type=int, default=1000, help="Blink interval ms (default: 1000)")
+    p_demo.add_argument(
+        "--interval", type=int, default=1000, help="Blink interval ms (default: 1000)"
+    )
     p_demo.add_argument("--flash", action="store_true", help="Auto-flash")
     p_demo.set_defaults(func=_cmd_demo)
 
     # catalog — 板卡目录
     p_catalog = sub.add_parser("catalog", help="Browse Arduino board catalog")
-    p_catalog.add_argument("--family", choices=["AVR", "SAMD", "MBED_RP2040", "ESP32", "NRF52", "SAM"],
-                          help="Filter by family")
+    p_catalog.add_argument(
+        "--family",
+        choices=["AVR", "SAMD", "MBED_RP2040", "ESP32", "NRF52", "SAM"],
+        help="Filter by family",
+    )
     p_catalog.set_defaults(func=_cmd_catalog)
 
     # monitor — 串口监控
@@ -141,6 +155,10 @@ def main() -> int:
     # check — 环境检查
     p_check = sub.add_parser("check", help="Check toolchain and dependencies")
     p_check.set_defaults(func=_cmd_check)
+
+    # wokwi-setup — Wokwi Token 配置
+    p_wokwi_setup = sub.add_parser("wokwi-setup", help="Configure Wokwi CLI token")
+    p_wokwi_setup.set_defaults(func=_cmd_wokwi_setup)
 
     # sim — Wokwi 仿真
     p_sim = sub.add_parser("sim", help="Start Wokwi simulation")
@@ -157,16 +175,19 @@ def main() -> int:
     # --simple 回退到旧交互终端
     if getattr(args, "simple", False):
         from .interactive import run_interactive as _plain_interactive
+
         return _plain_interactive(Path(args.work_dir))
 
     # setup 和 check 不依赖 arduino-cli
-    if args.cmd in ("setup", "check", "catalog"):
+    if args.cmd in ("setup", "check", "catalog", "wokwi-setup"):
         if args.cmd == "setup":
             return _cmd_setup(None, args)
         elif args.cmd == "check":
             return _cmd_check(None, args)
         elif args.cmd == "catalog":
             return _cmd_catalog(None, args)
+        elif args.cmd == "wokwi-setup":
+            return _cmd_wokwi_setup(None, args)
 
     # 无子命令时进入交互式终端
     if args.cmd is None:
@@ -178,6 +199,7 @@ def main() -> int:
 
     # 其他命令需要 ArduinoClient
     from .errors import ConfigurationError
+
     try:
         client = ArduinoClient(work_dir=args.work_dir)
     except ConfigurationError as e:
@@ -191,6 +213,7 @@ def main() -> int:
 #  命令处理函数
 # ---------------------------------------------------------------------------
 
+
 def _cmd_chat(client, args) -> int:
     """交互式会话"""
     return run_interactive(Path(args.work_dir))
@@ -199,12 +222,21 @@ def _cmd_chat(client, args) -> int:
 def _cmd_setup(client, args) -> int:
     """配置向导"""
     from .setup import setup_config
+
     work_dir = Path(getattr(args, "work_dir", Path.cwd()))
     success = setup_config(work_dir)
     if success:
         _print_success("Configuration saved")
     else:
         _print_error("Configuration not saved")
+    return 0 if success else 1
+
+
+def _cmd_wokwi_setup(client, args) -> int:
+    """Wokwi Token 配置"""
+    from .wokwi_setup import setup_wokwi_token_cli
+
+    success = setup_wokwi_token_cli()
     return 0 if success else 1
 
 
@@ -229,8 +261,11 @@ def _cmd_gen(client: ArduinoClient, args) -> int:
     # 生成代码
     try:
         from .ui.components.progress import create_spinner
+
         with create_spinner("Generating code..."):
-            project_dir, analysis = client.generate(args.prompt, args.project_name, output_dir=output_dir)
+            project_dir, analysis = client.generate(
+                args.prompt, args.project_name, output_dir=output_dir
+            )
         _print_success("Project generated", path=str(project_dir))
     except Exception as e:
         _print_error(f"Generation failed: {e}")
@@ -241,10 +276,12 @@ def _cmd_gen(client: ArduinoClient, args) -> int:
         fqbn = args.fqbn
         if not fqbn:
             from .interactive import _infer_fqbn_for_project
+
             fqbn = _infer_fqbn_for_project(client, args.prompt)
 
         console.print(f"[cyan]Building with FQBN: {fqbn}[/cyan]")
         from .interactive import _build_with_auto_fix
+
         if not _build_with_auto_fix(client, project_dir, args.project_name, args.prompt, fqbn):
             _print_error("Build failed after auto-fix attempts")
             return 1
@@ -306,6 +343,7 @@ def _cmd_run(client: ArduinoClient, args) -> int:
         console.print(f"[green][OK] Board: {boards[0].name or fqbn} @ {port}[/green]")
     else:
         from .interactive import _infer_fqbn_for_project
+
         fqbn = args.fqbn or _infer_fqbn_for_project(client, args.prompt)
         port = None
         console.print(f"[yellow][!] No board detected, using FQBN: {fqbn}[/yellow]")
@@ -313,6 +351,7 @@ def _cmd_run(client: ArduinoClient, args) -> int:
     # Step 2: Generate
     indicator.next()
     from . import _paths
+
     out = _paths.get_projects_dir(client.work_dir) / "arduino_projects" / args.project_name
 
     try:
@@ -327,6 +366,7 @@ def _cmd_run(client: ArduinoClient, args) -> int:
     # Step 3: Build
     indicator.next()
     from .interactive import _build_with_auto_fix
+
     if not _build_with_auto_fix(client, proj, args.project_name, args.prompt, fqbn):
         _print_error("Build failed after auto-fix attempts")
         return 1
@@ -346,20 +386,29 @@ def _cmd_run(client: ArduinoClient, args) -> int:
         console.print("[yellow][!] No board connected, skipping flash[/yellow]")
         # 尝试仿真
         from .simulation import create_wokwi_project, ensure_simulation_and_run
-        try:
-            create_wokwi_project(proj, fqbn=fqbn)
-            ok, msg = ensure_simulation_and_run(proj, fqbn=fqbn, timeout_ms=15000)
-            if ok:
-                _print_success("Simulation completed", output=msg[:500])
-            else:
-                console.print(f"[yellow][!] Simulation: {msg}[/yellow]")
-        except Exception as e:
-            console.print(f"[dim]Simulation skipped: {e}[/dim]")
+        from .wokwi_setup import check_and_setup_wokwi_token
+
+        # 先检查/配置 Token
+        token_ok, token_or_msg = check_and_setup_wokwi_token(auto_setup=True)
+        if not token_ok:
+            console.print(f"[yellow][!] Wokwi Token 未配置: {token_or_msg}[/yellow]")
+            console.print("[dim]可通过 'arduino-client wokwi-setup' 手动配置[/dim]")
+        else:
+            try:
+                create_wokwi_project(proj, fqbn=fqbn)
+                ok, msg = ensure_simulation_and_run(proj, fqbn=fqbn, timeout_ms=15000)
+                if ok:
+                    _print_success("Simulation completed", output=msg[:500])
+                else:
+                    console.print(f"[yellow][!] Simulation: {msg}[/yellow]")
+            except Exception as e:
+                console.print(f"[dim]Simulation skipped: {e}[/dim]")
 
     # Step 5: Verify
     if not args.no_verify and port:
         indicator.next()
         from .monitor import Monitor
+
         mon = Monitor(detector=client.board_detector)
         console.print("[cyan]Capturing serial output (8s)...[/cyan]")
         try:
@@ -368,11 +417,13 @@ def _cmd_run(client: ArduinoClient, args) -> int:
             serial_out = ""
 
         if serial_out:
-            console.print(Panel(
-                serial_out[:2000],
-                title="[cyan]Serial Output[/cyan]",
-                border_style="cyan",
-            ))
+            console.print(
+                Panel(
+                    serial_out[:2000],
+                    title="[cyan]Serial Output[/cyan]",
+                    border_style="cyan",
+                )
+            )
 
         if args.expect:
             if args.expect.lower() in serial_out.lower():
@@ -444,6 +495,7 @@ def _cmd_build(client: ArduinoClient, args) -> int:
 
     try:
         from .ui.components.progress import create_spinner
+
         with create_spinner(f"Building ({args.fqbn})..."):
             result = client.build(project_dir, args.fqbn)
 
@@ -532,6 +584,7 @@ def _cmd_catalog(client, args) -> int:
     render_header("Board Catalog")
 
     from .ui.board_catalog import BoardCatalog
+
     catalog = BoardCatalog(console=console)
 
     if getattr(args, "family", None):
@@ -555,14 +608,17 @@ def _cmd_monitor(client, args) -> int:
                 boards = client.detect_boards()
                 if boards:
                     port = boards[0].port
-                    console.print(f"[green][OK] Auto-detected: {boards[0].name or 'Board'} @ {port}[/green]")
+                    console.print(
+                        f"[green][OK] Auto-detected: {boards[0].name or 'Board'} @ {port}[/green]"
+                    )
                     _start_monitor(port, getattr(args, "baud", 115200), console=console)
                     return 0
             except Exception:
                 pass
 
-        _print_error("No port specified and no board detected",
-                     "Use --port COM3 or connect a board")
+        _print_error(
+            "No port specified and no board detected", "Use --port COM3 or connect a board"
+        )
         return 1
 
     return 0
@@ -588,15 +644,19 @@ def _cmd_check(client, args) -> int:
     if arduino_cli:
         table.add_row("arduino-cli", "[green]OK[/green]", arduino_cli)
     else:
-        table.add_row("arduino-cli", "[red]Missing[/red]", "Run 'arduino-client setup' or install manually")
+        table.add_row(
+            "arduino-cli", "[red]Missing[/red]", "Run 'arduino-client setup' or install manually"
+        )
 
     # 检查 Python
     import platform
+
     table.add_row("Python", "[green]OK[/green]", f"{platform.python_version()}")
 
     # 检查 openai
     try:
         import openai
+
         table.add_row("openai", "[green]OK[/green]", "Installed")
     except ImportError:
         table.add_row("openai", "[red]Missing[/red]", "pip install openai")
@@ -604,6 +664,7 @@ def _cmd_check(client, args) -> int:
     # 检查 pyserial
     try:
         import serial
+
         table.add_row("pyserial", "[green]OK[/green]", "Installed")
     except ImportError:
         table.add_row("pyserial", "[red]Missing[/red]", "pip install pyserial")
@@ -611,6 +672,7 @@ def _cmd_check(client, args) -> int:
     # 检查 rich
     try:
         from importlib.metadata import version as pkg_version
+
         rich_ver = pkg_version("rich")
         table.add_row("rich", "[green]OK[/green]", rich_ver)
     except Exception:
@@ -618,6 +680,7 @@ def _cmd_check(client, args) -> int:
 
     # 检查 LLM 配置
     from .llm_config import is_llm_configured
+
     work_dir = Path(getattr(args, "work_dir", Path.cwd()))
     if is_llm_configured(work_dir):
         table.add_row("LLM API", "[green]Configured[/green]", ".env loaded")
@@ -631,7 +694,41 @@ def _cmd_check(client, args) -> int:
     else:
         table.add_row("wokwi-cli", "[dim]Optional[/dim]", "For simulation support")
 
+    # 检查 Wokwi Token
+    from .wokwi_setup import get_wokwi_token
+
+    wokwi_token = get_wokwi_token()
+    if wokwi_token:
+        masked = f"{wokwi_token[:8]}...{wokwi_token[-4:]}" if len(wokwi_token) > 12 else "***"
+        table.add_row("Wokwi Token", "[green]Configured[/green]", masked)
+    else:
+        table.add_row(
+            "Wokwi Token",
+            "[yellow]Not configured[/yellow]",
+            "Run 'arduino-client wokwi-setup'",
+        )
+
     console.print(table)
+
+    # 如果 wokwi-cli 未安装，提供自动安装选项
+    if not shutil.which("wokwi-cli"):
+        console.print("\n[yellow][!] wokwi-cli not installed[/yellow]")
+        from rich.prompt import Confirm
+
+        try:
+            if Confirm.ask("[cyan][>] Auto-install wokwi-cli?[/cyan]", default=True):
+                from .installer import install_wokwi_cli
+                from .ui.components.progress import create_spinner
+
+                with create_spinner("Installing wokwi-cli..."):
+                    success, msg = install_wokwi_cli()
+                if success:
+                    console.print(f"[green][OK] {msg}[/green]")
+                else:
+                    console.print(f"[yellow][!] {msg}[/yellow]")
+        except (EOFError, KeyboardInterrupt):
+            pass
+
     return 0
 
 
@@ -660,8 +757,7 @@ def _cmd_sim_internal(project_dir: Path, fqbn: str, timeout_ms: int = 15000) -> 
             _print_success("Simulation completed")
             console.print(Panel(msg, title="[cyan]Serial Output[/cyan]", border_style="cyan"))
         else:
-            _print_error(f"Simulation failed: {msg}",
-                        "Install wokwi-cli and set WOKWI_CLI_TOKEN")
+            _print_error(f"Simulation failed: {msg}", "Install wokwi-cli and set WOKWI_CLI_TOKEN")
             return 1
     except Exception as e:
         _print_error(f"Simulation error: {e}")
@@ -673,6 +769,7 @@ def _cmd_sim_internal(project_dir: Path, fqbn: str, timeout_ms: int = 15000) -> 
 # ---------------------------------------------------------------------------
 #  辅助函数
 # ---------------------------------------------------------------------------
+
 
 def _start_monitor(port: str, baud: int = 115200, console: Console = None) -> None:
     """启动串口监视器"""

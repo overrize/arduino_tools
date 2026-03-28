@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Message, Project, Board, LLMConfig } from './types';
 import { generateArduinoCode, generateArduinoProject, saveProject, loadProjects, deleteProject, getProject } from './lib/project';
-import { exportProjectAsZip } from './lib/export';
+import { exportProjectAsZip, openInWokwi } from './lib/export';
 import Sidebar from './components/Sidebar';
 import Chat from './components/Chat';
 import InputBox from './components/InputBox';
@@ -18,7 +18,7 @@ const BOARDS: { value: Board; label: string }[] = [
 const INITIAL_MESSAGE: Message = {
   id: 'welcome',
   role: 'assistant',
-  content: '你好！我是 Arduino Web。\n\n描述你的项目需求，我会帮你生成 Arduino 代码。\n\n例如：\n- "用 Arduino Uno 做一个 LED 闪烁，13号引脚，每秒闪一次"\n- "用 Pico 做一个闹钟，GP10连接LED，GP3连接按键"\n\n请选择目标板卡，然后开始描述你的需求。',
+  content: '你好！我是 Arduino Web。\n\n描述你的项目需求，我会帮你生成 Arduino 代码并导出 ZIP。\n\n**工作流**: 描述需求 → AI 生成代码 → 导出 ZIP → 在 Arduino IDE 或 Wokwi 中运行\n\n例如：\n- "LED 闪烁，13号引脚，每秒闪一次"\n- "用温度传感器读取温度并通过串口输出"\n\n请选择目标板卡，然后开始描述你的需求。',
   timestamp: Date.now(),
 };
 
@@ -112,7 +112,7 @@ function App() {
       await exportProjectAsZip(currentProject);
       addMessage({
         role: 'assistant',
-        content: `✅ 项目已导出：${currentProject.name}.zip`,
+        content: `✅ 项目已导出：${currentProject.name}.zip\n\n包含 Wokwi 配置文件，可直接导入 https://wokwi.com 在线仿真。`,
       });
     } catch (error: any) {
       addMessage({
@@ -120,6 +120,11 @@ function App() {
         content: `❌ 导出失败：${error.message}`,
       });
     }
+  };
+
+  const handleOpenInWokwi = () => {
+    if (!currentProject) return;
+    openInWokwi(currentProject);
   };
 
   const handleNewProject = () => {
@@ -176,6 +181,7 @@ function App() {
           isGenerating={isGenerating}
           onSend={handleSendMessage}
           onExport={handleExportProject}
+          onOpenInWokwi={handleOpenInWokwi}
           hasProject={!!currentProject}
         />
       </div>

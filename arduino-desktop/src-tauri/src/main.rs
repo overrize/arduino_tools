@@ -12,6 +12,11 @@ fn main() {
             arduino_desktop::commands::build_project,
             arduino_desktop::commands::flash_project,
             arduino_desktop::commands::check_environment,
+            arduino_desktop::commands::capture_serial_output,
+            arduino_desktop::commands::debug_and_fix,
+            arduino_desktop::commands::get_wokwi_config,
+            arduino_desktop::commands::save_wokwi_config,
+            arduino_desktop::commands::install_wokwi_cli,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -36,22 +36,40 @@
   border-color: var(--accent);
 }
 
-.export-button {
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.export-button,
+.wokwi-button {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  background-color: var(--bg-tertiary);
   border: none;
   border-radius: 6px;
-  color: var(--text-primary);
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
+.export-button {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
 .export-button:hover:not(:disabled) {
   background-color: var(--accent);
+}
+
+.wokwi-button {
+  background-color: #00d4aa;
+  color: white;
+}
+
+.wokwi-button:hover:not(:disabled) {
+  background-color: #00b894;
 }
 
 .input-area {

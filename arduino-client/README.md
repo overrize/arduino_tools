@@ -46,7 +46,7 @@
 | 工具 | 用途 | 安装方式 |
 |------|------|---------|
 | **arduino-cli** | 编译、上传固件 | 工具内自动引导安装 |
-| **wokwi-cli** | 无板卡仿真 | `npm install -g wokwi-cli` + [获取 token](https://wokwi.com/dashboard/ci) |
+| **wokwi-cli** | 无板卡仿真 | [安装指南](https://docs.wokwi.com/wokwi-ci/cli-installation) + [获取 token](https://wokwi.com/dashboard/ci) |
 | **rich** | 美化终端 UI | `pip install arduino-client[ui]` |
 
 ## 快速开始

@@ -13,17 +13,25 @@ interface LLMConfig {
   model: string;
 }
 
+interface WokwiConfig {
+  token: string;
+}
+
 const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   const [config, setConfig] = useState<LLMConfig>({
     api_key: '',
     base_url: 'https://api.moonshot.cn/v1',
     model: 'kimi-k2-0905-preview',
   });
+  const [wokwiConfig, setWokwiConfig] = useState<WokwiConfig>({
+    token: '',
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     loadConfig();
+    loadWokwiConfig();
   }, []);
 
   const loadConfig = async () => {
@@ -35,12 +43,22 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     }
   };
 
+  const loadWokwiConfig = async () => {
+    try {
+      const savedConfig = await invoke<WokwiConfig>('get_wokwi_config');
+      setWokwiConfig(savedConfig);
+    } catch (error) {
+      console.error('Failed to load wokwi config:', error);
+    }
+  };
+
   const handleSave = async () => {
     setIsLoading(true);
     setMessage(null);
 
     try {
       await invoke('save_llm_config', { config });
+      await invoke('save_wokwi_config', { config: wokwiConfig });
       setMessage({ type: 'success', text: '配置已保存' });
       setTimeout(() => onClose(), 1000);
     } catch (error: any) {
@@ -118,6 +136,25 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                 <span>{message.text}</span>
               </div>
             )}
+          </div>
+
+          <div className="settings-section">
+            <h3>Wokwi 仿真配置</h3>
+            <div className="form-group">
+              <label>WOKWI_CLI_TOKEN</label>
+              <input
+                type="password"
+                value={wokwiConfig.token}
+                onChange={(e) => setWokwiConfig({ ...wokwiConfig, token: e.target.value })}
+                placeholder="wokwi_..."
+              />
+              <small style={{ display: 'block', marginTop: '4px', color: '#666' }}>
+                用于 Wokwi 仿真，获取地址：
+                <a href="https://wokwi.com/dashboard/ci" target="_blank" rel="noopener noreferrer" style={{ color: '#3498db' }}>
+                  wokwi.com/dashboard/ci
+                </a>
+              </small>
+            </div>
           </div>
 
           <div className="settings-section">

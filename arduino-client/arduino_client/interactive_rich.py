@@ -46,6 +46,7 @@ from .ui.theme import BRAND_COLOR, BRAND_DIM
 #  Step 1: LLM 配置向导（内嵌，不弹菜单）
 # ---------------------------------------------------------------------------
 
+
 def _setup_if_needed(console: Console, work_dir: Path) -> bool:
     """检查 LLM 配置，未配置则引导配置。返回 True 表示已配置。"""
     if is_llm_configured(work_dir):
@@ -55,6 +56,7 @@ def _setup_if_needed(console: Console, work_dir: Path) -> bool:
     console.print("[dim]You need an LLM API to generate Arduino code.[/dim]\n")
 
     from .setup import setup_config
+
     success = setup_config(work_dir)
 
     if not success:
@@ -70,6 +72,7 @@ def _setup_if_needed(console: Console, work_dir: Path) -> bool:
 #  Step 2: 确保 arduino-cli 可用
 # ---------------------------------------------------------------------------
 
+
 def _ensure_client(work_dir: Path, console: Console):
     """延迟创建 ArduinoClient，未安装 arduino-cli 时引导安装。"""
     from .client import ArduinoClient
@@ -79,16 +82,15 @@ def _ensure_client(work_dir: Path, console: Console):
         return ArduinoClient(work_dir=work_dir)
     except ConfigurationError as e:
         error_msg = str(e)
-        is_cli_missing = (
-            "未找到 arduino-cli" in error_msg or "arduino-cli" in error_msg.lower()
-        )
+        is_cli_missing = "未找到 arduino-cli" in error_msg or "arduino-cli" in error_msg.lower()
 
         console.print(f"[yellow][!] {e}[/yellow]")
 
         if is_cli_missing:
             try:
-                if Confirm.ask(f"[{BRAND_COLOR}][>] Auto-install arduino-cli?[/{BRAND_COLOR}]",
-                               default=True):
+                if Confirm.ask(
+                    f"[{BRAND_COLOR}][>] Auto-install arduino-cli?[/{BRAND_COLOR}]", default=True
+                ):
                     with create_spinner("Installing arduino-cli..."):
                         success, msg = install_arduino_cli()
                     if success:
@@ -102,50 +104,112 @@ def _ensure_client(work_dir: Path, console: Console):
         return None
 
 
+# 仿真环境状态缓存：None=未检查, True=就绪, False=不可用
+_wokwi_ready: Optional[bool] = None
+
+
+def _check_wokwi_env_silent() -> bool:
+    """静默检查仿真环境（wokwi-cli + token），不做任何安装或提示。"""
+    import shutil
+    from .wokwi_setup import get_wokwi_token
+
+    return bool(shutil.which("wokwi-cli") and get_wokwi_token())
+
+
+def _ensure_wokwi_ready(console: Console) -> bool:
+    """确保仿真环境就绪。使用缓存标志位避免重复检查。
+
+    - 启动时已静默探测过，如果已就绪则直接返回 True（零输出）。
+    - 缺失时才自动下载 wokwi-cli / 引导配置 Token。
+    """
+    global _wokwi_ready
+
+    if _wokwi_ready is True:
+        return True
+
+    import shutil
+    from .installer import install_wokwi_cli
+    from .wokwi_setup import get_wokwi_token, check_and_setup_wokwi_token
+
+    # 1. wokwi-cli：缺失则静默自动安装
+    if not shutil.which("wokwi-cli"):
+        with create_spinner("Installing wokwi-cli..."):
+            success, msg = install_wokwi_cli()
+        if success:
+            console.print(f"[green][OK] {msg}[/green]")
+        else:
+            console.print(f"[yellow][!] {msg}[/yellow]")
+            _wokwi_ready = False
+            return False
+
+    # 2. Token：有则静默通过，无则引导输入（仅此一次）
+    if not get_wokwi_token():
+        ok, _ = check_and_setup_wokwi_token(auto_setup=True)
+        if not ok:
+            console.print("[yellow][!] Wokwi Token not configured[/yellow]")
+            console.print("[dim]Run 'arduino-client wokwi-setup' to configure later[/dim]")
+            _wokwi_ready = False
+            return False
+
+    _wokwi_ready = True
+    return True
+
+
 # ---------------------------------------------------------------------------
 #  Step 3-7: 端到端管道
 # ---------------------------------------------------------------------------
 
-def _run_e2e_pipeline(client, work_dir: Path, console: Console) -> int:
-    """端到端管道：输入需求 → 检测板卡 → 生成 → 编译 → 烧录/仿真 → 验证"""
+
+def _run_e2e_pipeline(client, work_dir: Path, console: Console, initial_requirement: Optional[str] = None) -> int:
+    """端到端管道：输入需求 → 检测板卡 → 生成 → 编译 → 烧录/仿真 → 验证
+
+    Args:
+        initial_requirement: 如果提供则跳过需求输入步骤
+    """
     from . import _paths
     from .code_generator import generate_arduino_code_fix, extract_includes_from_code
     from .code_generator import review_and_patch_code
     from .builder import Builder
     from .monitor import Monitor
-    from .simulation import create_wokwi_project, ensure_simulation_and_run
-
     # ── Step 3: 输入需求 ──
-    console.print(f"\n[bold {BRAND_COLOR}]Describe Your Requirement[/bold {BRAND_COLOR}]")
-    console.print(
-        Panel(
-            "Examples:\n"
-            "  - LED blink on pin 13 using Arduino Uno\n"
-            "  - Pico reads DHT11 sensor, prints to Serial\n"
-            "  - ESP32 WiFi web server controlling an LED",
-            border_style="dim",
+    if initial_requirement:
+        requirement = initial_requirement
+    else:
+        console.print(f"\n[bold {BRAND_COLOR}]Describe Your Requirement[/bold {BRAND_COLOR}]")
+        console.print(
+            Panel(
+                "Examples:\n"
+                "  - LED blink on pin 13 using Arduino Uno\n"
+                "  - Pico reads DHT11 sensor, prints to Serial\n"
+                "  - ESP32 WiFi web server controlling an LED",
+                border_style="dim",
+            )
         )
-    )
 
-    try:
-        requirement = Prompt.ask(f"[{BRAND_COLOR}][>] Your requirement[/{BRAND_COLOR}]")
-    except (EOFError, KeyboardInterrupt):
-        console.print("[dim]Cancelled.[/dim]")
-        return 0
+        try:
+            requirement = Prompt.ask(f"[{BRAND_COLOR}][>] Your requirement[/{BRAND_COLOR}]")
+        except (EOFError, KeyboardInterrupt):
+            console.print("[dim]Cancelled.[/dim]")
+            return 0
 
-    if not requirement or requirement.strip().lower() in ("quit", "exit", "q"):
-        console.print("[dim]Exited.[/dim]")
-        return 0
+        if not requirement or requirement.strip().lower() in ("quit", "exit", "q"):
+            console.print("[dim]Exited.[/dim]")
+            return 0
     requirement = requirement.strip()
 
-    try:
-        project_name = Prompt.ask(
-            f"[{BRAND_COLOR}][>] Project name[/{BRAND_COLOR}]",
-            default="my_sketch",
-        )
-    except (EOFError, KeyboardInterrupt):
-        project_name = "my_sketch"
-    project_name = project_name.strip() or "my_sketch"
+    if initial_requirement:
+        # 继续交互时自动生成项目名，不打断用户
+        import hashlib
+        project_name = "sketch_" + hashlib.md5(requirement.encode()).hexdigest()[:6]
+    else:
+        try:
+            project_name = Prompt.ask(
+                f"[{BRAND_COLOR}][>] Project name[/{BRAND_COLOR}]",
+                default="my_sketch",
+            )
+        except (EOFError, KeyboardInterrupt):
+            project_name = "my_sketch"
+        project_name = project_name.strip() or "my_sketch"
 
     # ── Step 4: 自动检测板卡 ──
     console.print(f"\n[bold {BRAND_COLOR}]Detecting Hardware[/bold {BRAND_COLOR}]")
@@ -166,6 +230,7 @@ def _run_e2e_pipeline(client, work_dir: Path, console: Console) -> int:
         port = None
         # 从需求推断 FQBN
         from .interactive import _infer_fqbn_for_project
+
         fqbn = _infer_fqbn_for_project(client, requirement)
         console.print(f"[yellow][!] No board detected[/yellow]")
         console.print(f"[dim]Inferred FQBN from requirement: {fqbn}[/dim]")
@@ -224,7 +289,9 @@ def _run_e2e_pipeline(client, work_dir: Path, console: Console) -> int:
         preview = "\n".join(preview_lines)
         if len(code.split("\n")) > 25:
             preview += "\n..."
-        console.print(create_code_panel(preview, language="cpp", title=f"{project_name}.ino (preview)"))
+        console.print(
+            create_code_panel(preview, language="cpp", title=f"{project_name}.ino (preview)")
+        )
 
     # ── Step 6: 编译（带自动修复）──
     console.print(f"\n[bold {BRAND_COLOR}]Building[/bold {BRAND_COLOR}]")
@@ -246,13 +313,17 @@ def _run_e2e_pipeline(client, work_dir: Path, console: Console) -> int:
             break
 
         if result.success:
-            console.print(create_success_panel("Build successful", details={"Output": str(result.build_path)}))
+            console.print(
+                create_success_panel("Build successful", details={"Output": str(result.build_path)})
+            )
             build_ok = True
             break
 
         full_output = result.output or ""
         error_summary = Builder.extract_error_lines(full_output)
-        console.print(f"[red][X] Build failed (attempt {fix_round + 1}/{max_fix_rounds + 1}):[/red]")
+        console.print(
+            f"[red][X] Build failed (attempt {fix_round + 1}/{max_fix_rounds + 1}):[/red]"
+        )
         console.print(f"[dim]{error_summary[:500]}[/dim]")
 
         # 检测缺库
@@ -285,14 +356,16 @@ def _run_e2e_pipeline(client, work_dir: Path, console: Console) -> int:
             break
 
     if not build_ok:
-        console.print(create_error_panel(
-            "Build failed after all attempts.",
-            suggestions=[
-                f"Project: {out}",
-                "Check the .ino file for errors",
-                "Run 'arduino-client check' to verify toolchain",
-            ],
-        ))
+        console.print(
+            create_error_panel(
+                "Build failed after all attempts.",
+                suggestions=[
+                    f"Project: {out}",
+                    "Check the .ino file for errors",
+                    "Run 'arduino-client check' to verify toolchain",
+                ],
+            )
+        )
         return 1
 
     # ── Step 7: 部署 ──
@@ -305,23 +378,31 @@ def _run_e2e_pipeline(client, work_dir: Path, console: Console) -> int:
 
         upload_result = client.upload(out, fqbn, port=port)
         if upload_result.success:
-            console.print(create_success_panel("Flash completed!", details={"Port": upload_result.port}))
+            console.print(
+                create_success_panel("Flash completed!", details={"Port": upload_result.port})
+            )
 
             # ── 串口验证 + 调试循环 ──
             _serial_verify_loop(client, out, project_name, requirement, fqbn, port, console)
         else:
             console.print(create_error_panel(f"Flash failed: {upload_result.message}"))
-            # 烧录失败 → 提供仿真选项
-            if Confirm.ask(f"\n[{BRAND_COLOR}][>] Try Wokwi simulation instead?[/{BRAND_COLOR}]",
-                           default=True):
-                _run_simulation(out, fqbn, console)
+            # 烧录失败 → 自动切换仿真
+            console.print("[dim]Switching to Wokwi simulation...[/dim]")
+            sim_output = _run_simulation(out, fqbn, console)
+            if sim_output is not None:
+                _simulation_verify_loop(
+                    client, out, project_name, requirement, fqbn, sim_output, console
+                )
     else:
-        # ── 无板卡：提醒 + 自动仿真 ──
+        # ── 无板卡：自动仿真 + 验证循环 ──
         console.print("[yellow][!] No board connected[/yellow]")
-        console.print("[dim]Connect an Arduino board to flash firmware.[/dim]")
-        console.print("[dim]Starting Wokwi simulation instead...[/dim]\n")
+        console.print("[dim]Switching to Wokwi simulation...[/dim]")
 
-        _run_simulation(out, fqbn, console)
+        sim_output = _run_simulation(out, fqbn, console)
+        if sim_output is not None:
+            _simulation_verify_loop(
+                client, out, project_name, requirement, fqbn, sim_output, console
+            )
 
     return 0
 
@@ -329,6 +410,7 @@ def _run_e2e_pipeline(client, work_dir: Path, console: Console) -> int:
 # ---------------------------------------------------------------------------
 #  串口验证 + 调试循环
 # ---------------------------------------------------------------------------
+
 
 def _serial_verify_loop(client, proj_dir, project_name, requirement, fqbn, port, console):
     """烧录后的串口验证和交互式调试循环。"""
@@ -348,11 +430,13 @@ def _serial_verify_loop(client, proj_dir, project_name, requirement, fqbn, port,
         return
 
     if serial_out:
-        console.print(Panel(
-            serial_out[:2000] + ("..." if len(serial_out) > 2000 else ""),
-            title="[cyan]Serial Output[/cyan]",
-            border_style="cyan",
-        ))
+        console.print(
+            Panel(
+                serial_out[:2000] + ("..." if len(serial_out) > 2000 else ""),
+                title="[cyan]Serial Output[/cyan]",
+                border_style="cyan",
+            )
+        )
     else:
         console.print("[dim]No serial output (MCU may not use Serial or baud mismatch)[/dim]")
 
@@ -381,8 +465,11 @@ def _serial_verify_loop(client, proj_dir, project_name, requirement, fqbn, port,
         try:
             with create_spinner("AI diagnosing..."):
                 diagnosis, changes, fixed_code = diagnose_with_serial(
-                    current_code, serial_out, issue.strip(),
-                    hardware_info=hw_info, work_dir=client.work_dir,
+                    current_code,
+                    serial_out,
+                    issue.strip(),
+                    hardware_info=hw_info,
+                    work_dir=client.work_dir,
                 )
         except Exception as e:
             console.print(f"[yellow][!] Diagnosis failed: {e}[/yellow]")
@@ -427,9 +514,103 @@ def _serial_verify_loop(client, proj_dir, project_name, requirement, fqbn, port,
             serial_out = ""
 
         if serial_out:
-            console.print(Panel(serial_out[:2000], title="[cyan]Serial Output[/cyan]", border_style="cyan"))
+            console.print(
+                Panel(serial_out[:2000], title="[cyan]Serial Output[/cyan]", border_style="cyan")
+            )
         else:
             console.print("[dim]No serial output[/dim]")
+
+    console.print(f"[dim]Max debug rounds ({max_rounds}) reached.[/dim]")
+
+
+# ---------------------------------------------------------------------------
+#  仿真验证 + 调试循环
+# ---------------------------------------------------------------------------
+
+
+def _simulation_verify_loop(client, proj_dir, project_name, requirement, fqbn, serial_out, console):
+    """仿真后的验证和交互式调试循环（与 _serial_verify_loop 平行）。"""
+    from .code_generator import diagnose_with_serial, generate_arduino_code_fix
+    from .builder import Builder
+    from .simulation import run_wokwi_cli, create_wokwi_project
+
+    sketch = proj_dir / f"{project_name}.ino"
+    max_rounds = 5
+    hw_info = f"FQBN: {fqbn} (Wokwi simulation)\nRequirement: {requirement}"
+
+    for r in range(max_rounds):
+        try:
+            issue = Prompt.ask(
+                f"\n[{BRAND_COLOR}][>] Working correctly? (Enter=yes / describe issue)[/{BRAND_COLOR}]",
+                default="",
+                show_default=False,
+            )
+        except (EOFError, KeyboardInterrupt):
+            break
+
+        if not issue.strip():
+            console.print(create_success_panel("Verification passed!"))
+            return
+
+        # LLM 诊断
+        current_code = sketch.read_text(encoding="utf-8")
+        console.print(f"[cyan]Diagnosing (round {r + 1}/{max_rounds})...[/cyan]")
+
+        try:
+            from .code_generator import diagnose_with_serial
+            with create_spinner("AI diagnosing..."):
+                diagnosis, changes, fixed_code = diagnose_with_serial(
+                    current_code,
+                    serial_out,
+                    issue.strip(),
+                    hardware_info=hw_info,
+                    work_dir=client.work_dir,
+                )
+        except Exception as e:
+            console.print(f"[yellow][!] Diagnosis failed: {e}[/yellow]")
+            continue
+
+        console.print(f"[dim]Diagnosis: {diagnosis}[/dim]")
+        if changes:
+            console.print(f"[dim]Changes: {changes}[/dim]")
+
+        if not fixed_code:
+            console.print("[yellow][!] No fix code returned[/yellow]")
+            continue
+
+        # 写入修复代码 → 编译
+        sketch.write_text(fixed_code, encoding="utf-8")
+
+        try:
+            with create_spinner("Rebuilding..."):
+                build_result = client.build(proj_dir, fqbn)
+        except Exception:
+            console.print("[red][X] Rebuild failed[/red]")
+            sketch.write_text(current_code, encoding="utf-8")
+            continue
+
+        if not build_result.success:
+            console.print("[red][X] Rebuild failed, reverting[/red]")
+            sketch.write_text(current_code, encoding="utf-8")
+            continue
+
+        console.print("[green][OK] Fixed code compiled[/green]")
+
+        # 重新仿真
+        console.print("[cyan]Re-running simulation...[/cyan]")
+        try:
+            create_wokwi_project(proj_dir, fqbn=fqbn)
+            ok, msg = run_wokwi_cli(proj_dir, timeout_ms=15000)
+            user_output = _filter_wokwi_output(msg)
+            serial_out = user_output
+
+            if ok:
+                display = user_output or "（无串口输出）"
+                console.print(Panel(display, title="[cyan]仿真串口输出[/cyan]", border_style="cyan"))
+            else:
+                console.print(f"[yellow][!] Re-simulation failed: {msg}[/yellow]")
+        except Exception as e:
+            console.print(f"[yellow][!] Re-simulation failed: {e}[/yellow]")
 
     console.print(f"[dim]Max debug rounds ({max_rounds}) reached.[/dim]")
 
@@ -438,29 +619,57 @@ def _serial_verify_loop(client, proj_dir, project_name, requirement, fqbn, port,
 #  Wokwi 仿真
 # ---------------------------------------------------------------------------
 
-def _run_simulation(proj_dir: Path, fqbn: str, console: Console):
-    """运行 Wokwi 仿真"""
-    from .simulation import create_wokwi_project, ensure_simulation_and_run
+
+def _filter_wokwi_output(raw: str) -> str:
+    """从 wokwi-cli 原始输出中提取用户固件的串口输出"""
+    user_lines = [
+        line for line in raw.splitlines()
+        if line.strip()
+        and not line.strip().startswith("Wokwi CLI")
+        and not line.strip().startswith("Connected to")
+        and not line.strip().startswith("Starting simulation")
+        and "Timeout:" not in line
+    ]
+    return "\n".join(user_lines) if user_lines else ""
+
+
+def _run_simulation(proj_dir: Path, fqbn: str, console: Console) -> Optional[str]:
+    """运行 Wokwi 仿真，返回用户固件的串口输出（失败返回 None）。
+
+    首次调用时自动静默安装 wokwi-cli 和配置 Token（无需提前准备）。
+    """
+    from .simulation import create_wokwi_project, run_wokwi_cli
+
+    # 延迟准备：仅在真正需要仿真时才安装 / 配置
+    if not _ensure_wokwi_ready(console):
+        return None
 
     try:
         create_wokwi_project(proj_dir, fqbn=fqbn)
-        console.print("[cyan]Running Wokwi simulation...[/cyan]")
+    except FileNotFoundError as e:
+        console.print(f"[yellow][!] {e}[/yellow]")
+        return None
 
-        ok, msg = ensure_simulation_and_run(proj_dir, fqbn=fqbn, timeout_ms=15000)
-        if ok:
-            console.print(create_success_panel("Simulation completed"))
-            console.print(Panel(msg, title="[cyan]Serial Output[/cyan]", border_style="cyan"))
-        else:
-            console.print(f"[yellow][!] Simulation: {msg}[/yellow]")
-            console.print("[dim]Tip: install wokwi-cli and set WOKWI_CLI_TOKEN[/dim]")
-    except Exception as e:
-        console.print(f"[yellow][!] Simulation skipped: {e}[/yellow]")
-        console.print("[dim]Code is compiled. Connect a board to flash, or install wokwi-cli to simulate.[/dim]")
+    console.print(f"\n[bold {BRAND_COLOR}]Wokwi Simulation[/bold {BRAND_COLOR}]")
+    console.print("[cyan]Running simulation (15s timeout)...[/cyan]\n")
+
+    ok, msg = run_wokwi_cli(proj_dir, timeout_ms=15000)
+    user_output = _filter_wokwi_output(msg)
+
+    if ok:
+        console.print(create_success_panel("Simulation completed"))
+        display = user_output or "（无串口输出 — 固件可能未调用 Serial.print）"
+        console.print(Panel(display, title="[cyan]仿真串口输出[/cyan]", border_style="cyan"))
+        return user_output
+    else:
+        console.print(f"[yellow][!] Simulation failed: {msg}[/yellow]")
+        return None
 
 
 # ---------------------------------------------------------------------------
 #  入口
 # ---------------------------------------------------------------------------
+
 
 def run_interactive_rich(work_dir: Optional[Path] = None) -> int:
     """运行端到端交互式管道"""
@@ -483,19 +692,27 @@ def run_interactive_rich(work_dir: Optional[Path] = None) -> int:
     if client is None:
         return 1
 
-    # 4-7. 端到端管道（可循环）
-    while True:
-        ret = _run_e2e_pipeline(client, work_dir, console)
+    # 4. 静默探测仿真环境（已有就缓存标志位，缺失时留到真正需要仿真再处理）
+    global _wokwi_ready
+    _wokwi_ready = _check_wokwi_env_silent() or None  # True=就绪, None=待补
 
+    # 5. 端到端管道（持续交互）
+    next_requirement = None  # 首次运行时由 pipeline 内部询问
+    while True:
+        ret = _run_e2e_pipeline(client, work_dir, console, initial_requirement=next_requirement)
+
+        # 完成后等待用户下一个需求
+        console.print(f"\n[dim]{'─' * 50}[/dim]")
         try:
-            again = Confirm.ask(
-                f"\n[{BRAND_COLOR}][>] Start another project?[/{BRAND_COLOR}]",
-                default=False,
+            next_requirement = Prompt.ask(
+                f"[{BRAND_COLOR}][>] Next requirement (or 'quit' to exit)[/{BRAND_COLOR}]",
+                default="",
+                show_default=False,
             )
         except (EOFError, KeyboardInterrupt):
             break
 
-        if not again:
+        if not next_requirement.strip() or next_requirement.strip().lower() in ("quit", "exit", "q"):
             break
 
     console.print(f"\n[{BRAND_COLOR}]Bye![/{BRAND_COLOR}]")

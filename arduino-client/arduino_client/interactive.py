@@ -2,6 +2,7 @@
 Arduino Client 交互式终端
 菜单驱动，自然语言 → 自动生成/编译/烧录（或仿真）
 """
+
 import sys
 from pathlib import Path
 from typing import Optional
@@ -13,8 +14,10 @@ from .errors import ConfigurationError
 from .installer import install_arduino_cli
 from .simulation import create_wokwi_project, ensure_simulation_and_run
 from .code_generator import (
-    generate_arduino_code_fix, review_and_patch_code,
-    extract_includes_from_code, diagnose_with_serial,
+    generate_arduino_code_fix,
+    review_and_patch_code,
+    extract_includes_from_code,
+    diagnose_with_serial,
 )
 from .monitor import Monitor
 
@@ -30,6 +33,7 @@ FQBN_ALIASES = {
 def _has_rich() -> bool:
     try:
         import rich  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -40,14 +44,17 @@ def _print_banner(work_dir: Path):
     if _has_rich():
         from rich.console import Console
         from rich.panel import Panel
+
         console = Console()
         status = "[green]已配置[/green]" if llm_ok else "[yellow]未配置，请选 1 配置[/yellow]"
-        console.print(Panel.fit(
-            f"[bold cyan]Arduino Client[/bold cyan] v{__version__} — 交互式终端\n"
-            f"LLM API（.env）: {status}\n"
-            "输入数字选择操作，或输入 [cyan]help[/cyan] / [cyan]exit[/cyan]",
-            border_style="cyan"
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold cyan]Arduino Client[/bold cyan] v{__version__} — 交互式终端\n"
+                f"LLM API（.env）: {status}\n"
+                "输入数字选择操作，或输入 [cyan]help[/cyan] / [cyan]exit[/cyan]",
+                border_style="cyan",
+            )
+        )
     else:
         print("=" * 50)
         print(f"Arduino Client v{__version__} — 交互式终端")
@@ -62,6 +69,7 @@ def _print_menu(work_dir: Path):
     if _has_rich():
         from rich.console import Console
         from rich.table import Table
+
         console = Console()
         table = Table(show_header=False, box=None, padding=(0, 2))
         table.add_column(style="bold cyan")
@@ -97,6 +105,7 @@ def _prompt(text: str = "请选择") -> str:
 #  辅助：FQBN 推断 / 编译自动修复 / 端到端流水线
 # ---------------------------------------------------------------------------
 
+
 def _normalize_fqbn(user_input: str) -> str:
     value = (user_input or "").strip()
     if not value:
@@ -125,9 +134,7 @@ def _infer_fqbn_for_project(client, prompt: str) -> str:
     return "arduino:avr:uno"
 
 
-def _build_with_auto_fix(
-    client, proj_dir: Path, project_name: str, prompt: str, fqbn: str
-) -> bool:
+def _build_with_auto_fix(client, proj_dir: Path, project_name: str, prompt: str, fqbn: str) -> bool:
     """编译 → 缺库则安装重试 → 代码错误则 LLM 修复重试，最多 3 轮 LLM 修复。"""
     from .builder import Builder
 
@@ -248,8 +255,11 @@ def _run_debug_loop(client, sketch_file, serial_output, prompt, fqbn, port):
         print(f"  [调试] 第 {r + 1}/{max_rounds} 轮诊断...")
         try:
             diagnosis, changes, fixed_code = diagnose_with_serial(
-                current_code, serial_output, issue,
-                hardware_info=hw_info, work_dir=client.work_dir,
+                current_code,
+                serial_output,
+                issue,
+                hardware_info=hw_info,
+                work_dir=client.work_dir,
             )
         except Exception as e:
             print(f"  [诊断] LLM 调用失败: {e}")
@@ -448,9 +458,7 @@ def _run_pipeline(client, work_dir: Path, prompt: str, project_name: str):
         if include_libs:
             print(f"  [提示] 代码引用了外部库: {', '.join(include_libs)}（编译时按需安装）")
     else:
-        proj, analysis = client.generate(
-            prompt, project_name, output_dir=out, platform_hint=fqbn
-        )
+        proj, analysis = client.generate(prompt, project_name, output_dir=out, platform_hint=fqbn)
         print(f"已生成: {proj}")
 
         # 零依赖原则：不根据需求分析预装库。
@@ -476,12 +484,24 @@ def _run_pipeline(client, work_dir: Path, prompt: str, project_name: str):
 
     # 无板卡 → 仿真
     print("  [仿真] 正在启动 Wokwi 仿真...")
+
+    # 先检查/配置 Token
+    from .wokwi_setup import check_and_setup_wokwi_token
+
+    token_ok, token_or_msg = check_and_setup_wokwi_token(auto_setup=True)
+    if not token_ok:
+        print(f"  [!] Wokwi Token 未配置: {token_or_msg}")
+        print("  [提示] 可通过 'arduino-client wokwi-setup' 手动配置")
+        print("  [提示] 代码已编译成功，配置 Token 后可重新运行进行仿真")
+        return
+
     try:
         create_wokwi_project(proj, fqbn=fqbn)
         ok, msg = ensure_simulation_and_run(proj, fqbn=fqbn, timeout_ms=15000)
         if ok:
             if _has_rich():
                 from rich.console import Console
+
                 c = Console()
                 c.print("[green]仿真完成[/green]")
                 c.print("[dim]串口输出：[/dim]")
@@ -491,7 +511,6 @@ def _run_pipeline(client, work_dir: Path, prompt: str, project_name: str):
                 print(msg)
         else:
             print(f"仿真未成功: {msg}")
-            print("（提示：仿真需要安装 wokwi-cli 并设置 WOKWI_CLI_TOKEN）")
     except Exception as e:
         print(f"仿真跳过: {e}")
         print("代码已生成并编译成功，连接板卡后可重新运行以烧录。")
@@ -501,20 +520,21 @@ def _run_pipeline(client, work_dir: Path, prompt: str, project_name: str):
 #  主交互循环
 # ---------------------------------------------------------------------------
 
+
 def _ensure_client(work_dir: Path):
     """延迟创建 ArduinoClient，未安装 arduino-cli 时引导安装。"""
     from .client import ArduinoClient
+
     try:
         return ArduinoClient(work_dir=work_dir)
     except ConfigurationError as e:
         error_msg = str(e)
-        is_cli_missing = (
-            "未找到 arduino-cli" in error_msg or "arduino-cli" in error_msg.lower()
-        )
+        is_cli_missing = "未找到 arduino-cli" in error_msg or "arduino-cli" in error_msg.lower()
 
         if _has_rich():
             from rich.console import Console
             from rich.prompt import Confirm
+
             console = Console()
             console.print(f"[red]需要 arduino-cli: {e}[/red]")
             if is_cli_missing:
@@ -531,9 +551,7 @@ def _ensure_client(work_dir: Path):
                         else:
                             console.print(f"[yellow]{msg}[/yellow]")
                 except Exception:
-                    console.print(
-                        "[dim]可先使用 1 配置 API，或手动安装 arduino-cli 后重试[/dim]"
-                    )
+                    console.print("[dim]可先使用 1 配置 API，或手动安装 arduino-cli 后重试[/dim]")
         else:
             print(f"需要 arduino-cli: {e}")
             if is_cli_missing:
@@ -567,6 +585,7 @@ def run_interactive(work_dir: Optional[Path] = None) -> int:
             if choice.lower() in ("exit", "quit", "q", "5"):
                 if _has_rich():
                     from rich.console import Console
+
                     Console().print("[cyan]再见[/cyan]")
                 else:
                     print("再见")
@@ -580,6 +599,7 @@ def run_interactive(work_dir: Optional[Path] = None) -> int:
                 success = setup_config(work_dir)
                 if _has_rich():
                     from rich.console import Console
+
                     c = Console()
                     if success:
                         c.print("[green]配置已保存[/green]")
@@ -599,9 +619,7 @@ def run_interactive(work_dir: Optional[Path] = None) -> int:
                     if client is None:
                         continue
 
-                prompt = input(
-                    "描述需求（如：用 pico 做 LED 闪烁，GP10 引脚）: "
-                ).strip()
+                prompt = input("描述需求（如：用 pico 做 LED 闪烁，GP10 引脚）: ").strip()
                 if not prompt:
                     continue
                 name = input("项目名称（默认: my_sketch）: ").strip() or "my_sketch"
@@ -637,9 +655,7 @@ def run_interactive(work_dir: Optional[Path] = None) -> int:
                     if client is None:
                         continue
 
-                demo_prompt = (
-                    "用 Arduino Uno 做一个 LED 闪烁，13 号引脚，每 1000 毫秒闪烁一次"
-                )
+                demo_prompt = "用 Arduino Uno 做一个 LED 闪烁，13 号引脚，每 1000 毫秒闪烁一次"
                 try:
                     _run_pipeline(client, work_dir, demo_prompt, "blink_demo")
                 except Exception as e:
@@ -648,6 +664,7 @@ def run_interactive(work_dir: Optional[Path] = None) -> int:
 
             if _has_rich():
                 from rich.console import Console
+
                 Console().print("[yellow]请输入 1-5 或 help/exit[/yellow]")
             else:
                 print("请输入 1-5 或 help/exit")
