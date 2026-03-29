@@ -103,6 +103,30 @@ def _add_to_path(directory: Path) -> None:
             pass  # 注册表写入失败不影响当前会话
 
 
+def find_wokwi_cli() -> Optional[str]:
+    """查找 wokwi-cli，先查 PATH 再查已知安装目录。
+
+    找到后自动将其目录加入当前进程 PATH（解决新终端 PATH 未刷新的问题）。
+    Returns:
+        wokwi-cli 可执行文件路径，未找到返回 None
+    """
+    # 1. PATH 上直接找到
+    path = shutil.which("wokwi-cli")
+    if path:
+        return path
+
+    # 2. 检查已知安装目录
+    install_dir = _get_install_dir()
+    bin_name = "wokwi-cli.exe" if _is_windows() else "wokwi-cli"
+    candidate = install_dir / bin_name
+    if candidate.is_file():
+        # 找到了，把目录加入 PATH 使后续 subprocess 也能用
+        _add_to_path(install_dir)
+        return str(candidate)
+
+    return None
+
+
 def install_wokwi_cli() -> Tuple[bool, str]:
     """自动下载安装 wokwi-cli
 
@@ -111,8 +135,9 @@ def install_wokwi_cli() -> Tuple[bool, str]:
     Returns:
         (success, message) 安装是否成功及消息
     """
-    if _check_command("wokwi-cli"):
-        return True, "wokwi-cli 已安装"
+    existing = find_wokwi_cli()
+    if existing:
+        return True, f"wokwi-cli 已就绪 ({existing})"
 
     system = platform.system()
     arch = _get_arch()

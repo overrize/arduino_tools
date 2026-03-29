@@ -133,8 +133,9 @@ def run_wokwi_cli(
     if not token:
         return False, "未设置 WOKWI_CLI_TOKEN。请运行 'arduino-client wokwi-setup' 或在设置中配置。"
 
-    cli = "wokwi-cli"
-    if not shutil.which(cli):
+    from .installer import find_wokwi_cli
+    cli = find_wokwi_cli()
+    if not cli:
         return False, "未找到 wokwi-cli，请安装: https://docs.wokwi.com/wokwi-ci/cli-installation"
 
     project_dir = Path(project_dir).resolve()

@@ -110,10 +110,10 @@ _wokwi_ready: Optional[bool] = None
 
 def _check_wokwi_env_silent() -> bool:
     """静默检查仿真环境（wokwi-cli + token），不做任何安装或提示。"""
-    import shutil
+    from .installer import find_wokwi_cli
     from .wokwi_setup import get_wokwi_token
 
-    return bool(shutil.which("wokwi-cli") and get_wokwi_token())
+    return bool(find_wokwi_cli() and get_wokwi_token())
 
 
 def _ensure_wokwi_ready(console: Console) -> bool:
@@ -127,13 +127,12 @@ def _ensure_wokwi_ready(console: Console) -> bool:
     if _wokwi_ready is True:
         return True
 
-    import shutil
-    from .installer import install_wokwi_cli
+    from .installer import find_wokwi_cli, install_wokwi_cli
     from .wokwi_setup import get_wokwi_token, check_and_setup_wokwi_token
 
-    # 1. wokwi-cli：缺失则静默自动安装
-    if not shutil.which("wokwi-cli"):
-        with create_spinner("Installing wokwi-cli..."):
+    # 1. wokwi-cli：先查 PATH + 已知安装目录，都没有才下载
+    if not find_wokwi_cli():
+        with create_spinner("Downloading wokwi-cli..."):
             success, msg = install_wokwi_cli()
         if success:
             console.print(f"[green][OK] {msg}[/green]")
