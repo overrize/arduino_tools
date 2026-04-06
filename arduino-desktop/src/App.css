@@ -1,35 +1,7 @@
 .app {
   display: flex;
+  flex-direction: column;
   width: 100vw;
   height: 100vh;
   background-color: var(--bg-base);
-}
-
-.main-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.board-status {
-  padding: 8px 20px;
-  font-size: 13px;
-  background-color: var(--bg-surface);
-  box-shadow: inset 0 -1px 0 var(--border-subtle);
-}
-
-.board-connected {
-  color: var(--success);
-}
-
-.board-disconnected {
-  color: var(--text-secondary);
-}
-
-.chat-section {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
 }
