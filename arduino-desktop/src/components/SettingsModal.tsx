@@ -131,7 +131,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
             </div>
 
             {message && (
-              <div className={`message ${message.type}`}>
+              <div className={`settings-message ${message.type}`}>
                 {message.type === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}
                 <span>{message.text}</span>
               </div>

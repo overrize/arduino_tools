@@ -1,14 +1,14 @@
 .task-panel {
-  width: 400px;
-  background-color: #16213e;
-  border-left: 1px solid #0f3460;
+  width: 380px;
+  background-color: var(--bg-surface);
+  box-shadow: -1px 0 0 var(--border-subtle);
   display: flex;
   flex-direction: column;
 }
 
 .task-header {
-  padding: 16px 20px;
-  border-bottom: 2px solid;
+  padding: 14px 20px;
+  box-shadow: inset 0 -1px 0 var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -18,11 +18,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-weight: 600;
-}
-
-.spin {
-  animation: spin 1s linear infinite;
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--text-primary);
 }
 
 @keyframes spin {
@@ -34,27 +32,29 @@
   }
 }
 
+.spin {
+  animation: spin 1.2s linear infinite;
+}
+
 .task-indicator {
   display: flex;
   align-items: center;
 }
 
-.pulse-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes pulse {
+@keyframes subtlePulse {
   0%, 100% {
     opacity: 1;
-    transform: scale(1);
   }
   50% {
-    opacity: 0.5;
-    transform: scale(1.2);
+    opacity: 0.4;
   }
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  animation: subtlePulse 2s ease-in-out infinite;
 }
 
 .task-logs {
@@ -68,38 +68,38 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 20px;
-  background-color: #1a1a2e;
-  font-size: 12px;
-  color: #8b9dc3;
+  padding: 10px 20px;
+  background-color: var(--bg-base);
+  font-size: 11px;
+  color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
 }
 
 .logs-content {
   flex: 1;
   overflow-y: auto;
   padding: 12px 20px;
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.6;
 }
 
 .empty-logs {
-  color: #8b9dc3;
+  color: var(--text-muted);
   text-align: center;
   padding: 40px 0;
 }
 
 .log-line {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   margin-bottom: 4px;
-  color: #eaeaea;
+  color: var(--text-secondary);
 }
 
 .log-time {
-  color: #8b9dc3;
+  color: var(--text-muted);
   flex-shrink: 0;
 }
 

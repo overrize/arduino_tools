@@ -23,6 +23,7 @@ which = "5.0"
 serialport = "4.2"
 regex = "1.10"
 lazy_static = "1.4"
+base64 = "0.21"
 
 [features]
 default = ["custom-protocol"]

@@ -366,3 +366,118 @@ fn extract_json_block(content: &str) -> String {
     }
     content.to_string()
 }
+
+const DIAGRAM_SYSTEM_PROMPT: &str = r#"你是 Wokwi 电路仿真专家。根据 Arduino 代码分析所需的硬件元件和接线，生成 Wokwi diagram.json。
+
+## 输出格式
+只输出合法的 JSON，不要解释。格式：
+{
+  "version": 1,
+  "author": "Arduino Desktop",
+  "editor": "wokwi",
+  "parts": [...],
+  "connections": [...]
+}
+
+## parts 规则
+- 第一个 part 必须是主板（id 为 "board"）
+- 每个 LED 必须串联一个 220 欧电阻
+- 布局从左到右：板子在左(left:0)，元件在右(left:200+)
+- 每个元件间隔 top 至少 60
+
+## 支持的元件类型
+wokwi-led, wokwi-resistor, wokwi-pushbutton, wokwi-potentiometer,
+wokwi-servo, wokwi-lcd1602, wokwi-buzzer, wokwi-neopixel,
+wokwi-dht22, wokwi-ds1307, wokwi-slide-switch
+
+## connections 规则
+- 格式：["part1:pin", "part2:pin", "线颜色", []]
+- LED 引脚：A（阳极）、C（阴极）
+- 电阻引脚：1、2
+- 按钮引脚：1.l、1.r、2.l、2.r
+- 板子引脚：board:2, board:13, board:GND.1, board:5V 等
+- 线颜色：red(5V), black(GND), green/blue/orange(信号)
+
+## 分析代码的方法
+1. 找 #define 或 const 中的引脚定义
+2. 找 pinMode() 调用确认输入/输出
+3. 找 digitalWrite/analogWrite 确认输出元件
+4. 找 digitalRead/analogRead 确认输入元件
+5. 根据上下文推断元件类型（LED、按钮、传感器等）"#;
+
+pub async fn generate_diagram_json(
+    code: &str,
+    board_id: &str,
+    config: &LLMConfig,
+) -> Result<String, String> {
+    if config.api_key.is_empty() {
+        return Err("API Key not configured".to_string());
+    }
+
+    let client = reqwest::Client::new();
+
+    let user_content = format!(
+        r#"主板类型：{}
+
+Arduino 代码：
+```cpp
+{}
+```
+
+请分析代码中使用的引脚和硬件元件，生成完整的 Wokwi diagram.json。"#,
+        board_id, code
+    );
+
+    let request_body = json!({
+        "model": config.model,
+        "messages": [
+            {
+                "role": "system",
+                "content": DIAGRAM_SYSTEM_PROMPT
+            },
+            {
+                "role": "user",
+                "content": user_content
+            }
+        ],
+        "temperature": 0.1,
+    });
+
+    let response = client
+        .post(format!("{}/chat/completions", config.base_url))
+        .header("Authorization", format!("Bearer {}", config.api_key))
+        .header("Content-Type", "application/json")
+        .json(&request_body)
+        .send()
+        .await
+        .map_err(|e| format!("HTTP request failed: {}", e))?;
+
+    let status = response.status();
+    let response_text = response
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read response: {}", e))?;
+
+    if !status.is_success() {
+        return Err(format!("API error ({}): {}", status, response_text));
+    }
+
+    let response_json: serde_json::Value = serde_json::from_str(&response_text)
+        .map_err(|e| format!("Failed to parse response: {}", e))?;
+
+    let content = response_json["choices"][0]["message"]["content"]
+        .as_str()
+        .ok_or("Invalid response format")?;
+
+    let json_str = extract_json_block(content);
+
+    // Validate it's valid JSON with required fields
+    let parsed: serde_json::Value = serde_json::from_str(&json_str)
+        .map_err(|e| format!("Invalid diagram JSON: {}", e))?;
+
+    if parsed["parts"].as_array().map_or(true, |a| a.is_empty()) {
+        return Err("Diagram has no parts".to_string());
+    }
+
+    Ok(json_str)
+}

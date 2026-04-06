@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
 import { listen } from '@tauri-apps/api/event';
+import { open } from '@tauri-apps/api/shell';
 import Sidebar from './components/Sidebar';
 import Chat from './components/Chat';
 import InputBox from './components/InputBox';
 import TaskPanel from './components/TaskPanel';
+import SimulationPanel from './components/SimulationPanel';
 import SettingsModal from './components/SettingsModal';
 import './App.css';
 
@@ -53,10 +55,10 @@ const INITIAL_MESSAGE: Message = {
 };
 
 type AppState = 
-  | 'idle'           // 等待用户输入需求
-  | 'running_e2e'    // 执行端到端流程
-  | 'waiting_verify' // 等待用户验证（按Enter或描述问题）
-  | 'auto_fixing';   // 自动修复中
+  | 'idle'
+  | 'running_e2e'
+  | 'waiting_verify'
+  | 'auto_fixing';
 
 function App() {
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
@@ -73,6 +75,9 @@ function App() {
   const [fixRound, setFixRound] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const simulationOutputRef = useRef<string>('');
+  const [simulationScreenshot, setSimulationScreenshot] = useState<string | null>(null);
+  const [simulationDiagram, setSimulationDiagram] = useState<string | null>(null);
+  const [showSimPanel, setShowSimPanel] = useState(false);
 
   useEffect(() => {
     loadProjects();
@@ -90,12 +95,22 @@ function App() {
       simulationOutputRef.current = event.payload as string;
     });
 
+    const unlistenScreenshot = listen('simulation-screenshot', (event: any) => {
+      setSimulationScreenshot(event.payload as string);
+    });
+
+    const unlistenDiagram = listen('simulation-diagram', (event: any) => {
+      setSimulationDiagram(event.payload as string);
+    });
+
     const detectInterval = setInterval(autoDetectBoard, 10000);
 
     return () => {
       unlistenStatus.then(fn => fn());
       unlistenLog.then(fn => fn());
       unlistenSimOutput.then(fn => fn());
+      unlistenScreenshot.then(fn => fn());
+      unlistenDiagram.then(fn => fn());
       clearInterval(detectInterval);
     };
   }, []);
@@ -132,7 +147,6 @@ function App() {
     return newMessage.id;
   }, []);
 
-  // 自动采集串口
   const captureSerial = async (port: string): Promise<string> => {
     try {
       const result = await invoke<{
@@ -154,7 +168,6 @@ function App() {
     }
   };
 
-  // 自动修复流程
   const runAutoFix = async (issueDescription: string) => {
     if (!currentProject) return;
 
@@ -165,7 +178,7 @@ function App() {
 
     const loadingId = addMessage({
       role: 'assistant',
-      content: `🔧 第 ${fixRound + 1}/5 轮自动修复...\n\n问题：${issueDescription}`,
+      content: `第 ${fixRound + 1}/5 轮自动修复...\n\n问题：${issueDescription}`,
       isLoading: true,
     });
 
@@ -183,10 +196,9 @@ function App() {
       if (result.success) {
         addMessage({
           role: 'assistant',
-          content: `✅ 自动修复成功！\n\n**诊断**：${result.diagnosis}\n\n**修改**：${result.changes}\n\n代码已更新并重新上传。`,
+          content: `自动修复成功！\n\n**诊断**：${result.diagnosis}\n\n**修改**：${result.changes}\n\n代码已更新并重新上传。`,
         });
 
-        // 重新采集串口
         if (detectedBoard) {
           addMessage({
             role: 'assistant',
@@ -213,14 +225,14 @@ function App() {
       } else {
         addMessage({
           role: 'assistant',
-          content: `⚠️ 自动修复遇到问题\n\n**诊断**：${result.diagnosis}\n\n**修改**：${result.changes}\n\n**状态**：${result.message}\n\n请尝试重新描述需求，或检查硬件连接。`,
+          content: `自动修复遇到问题\n\n**诊断**：${result.diagnosis}\n\n**修改**：${result.changes}\n\n**状态**：${result.message}\n\n请尝试重新描述需求，或检查硬件连接。`,
         });
         setAppState('idle');
         setFixRound(0);
       }
     } catch (error: any) {
       setMessages(prev => prev.filter(m => m.id !== loadingId));
-      addMessage({ role: 'assistant', content: `❌ 自动修复失败：${error.toString()}` });
+      addMessage({ role: 'assistant', content: `自动修复失败：${error.toString()}` });
       setAppState('idle');
       setFixRound(0);
     } finally {
@@ -229,7 +241,6 @@ function App() {
     }
   };
 
-  // 端到端流程（生成→编译→烧录→采集）
   const runEndToEnd = async (userInput: string) => {
     setAppState('running_e2e');
     setIsProcessing(true);
@@ -262,11 +273,10 @@ function App() {
 
       addMessage({
         role: 'assistant',
-        content: `✅ 端到端流程完成！\n\n**项目**：${project.name}\n**板卡**：${project.board}\n**部署**：${method}`,
+        content: `端到端流程完成！\n\n**项目**：${project.name}\n**板卡**：${project.board}\n**部署**：${method}`,
       });
 
       if (detectedBoard) {
-        // 真实板卡：采集串口输出
         addMessage({
           role: 'assistant',
           content: '正在采集串口输出进行验证...',
@@ -283,11 +293,9 @@ function App() {
 
         setAppState('waiting_verify');
       } else {
-        // 仿真模式：展示仿真串口输出
         const simOutput = simulationOutputRef.current;
         simulationOutputRef.current = '';
 
-        // 从仿真输出中提取用户固件的串口输出（排除 wokwi-cli 自身 banner）
         const userLines = simOutput
           ? simOutput.split('\n').filter(line => {
               const l = line.trim();
@@ -297,18 +305,15 @@ function App() {
 
         const displayOutput = userLines || '（无串口输出 — 固件可能未调用 Serial.print）';
 
-        addMessage({
-          role: 'assistant',
-          content: `**Wokwi 仿真结果：**\n\n\`\`\`\n${displayOutput.slice(0, 1500)}\n\`\`\`${userLines.length > 1500 ? '\n\n... (已截断)' : ''}\n\n仿真已在无界面模式下运行，以上是固件的串口输出。\n\n功能是否符合预期？（正常请按 Enter，有问题请描述）`,
-        });
-        setSerialOutput(simOutput);
+        setSerialOutput(displayOutput);
+        setShowSimPanel(true);
         setAppState('waiting_verify');
       }
     } catch (error: any) {
       setMessages(prev => prev.filter(m => m.id !== loadingId));
       addMessage({
         role: 'assistant',
-        content: `❌ 流程失败：${error.toString()}\n\n请检查：\n1. arduino-cli 是否安装\n2. LLM API 配置是否正确\n3. 板卡连接是否正常`,
+        content: `流程失败：${error.toString()}\n\n请检查：\n1. arduino-cli 是否安装\n2. LLM API 配置是否正确\n3. 板卡连接是否正常`,
       });
       setAppState('idle');
     } finally {
@@ -317,7 +322,6 @@ function App() {
     }
   };
 
-  // 处理用户输入
   const handleSendMessage = async () => {
     if (!input.trim() || isProcessing) return;
 
@@ -325,32 +329,29 @@ function App() {
     addMessage({ role: 'user', content: userInput });
     setInput('');
 
-    // 根据当前状态处理
     if (appState === 'waiting_verify') {
-      // 用户正在验证
       if (!userInput || userInput.toLowerCase() === 'y' || userInput.toLowerCase() === 'yes' || userInput === '正常') {
-        // 验证通过
         addMessage({
           role: 'assistant',
-          content: '✅ 验证通过！项目已完成。\n\n如需创建新项目，直接描述新需求即可。',
+          content: '验证通过！项目已完成。\n\n如需创建新项目，直接描述新需求即可。',
         });
         setAppState('idle');
         setFixRound(0);
+        setShowSimPanel(false);
       } else {
-        // 用户描述问题，进入自动修复
         if (fixRound >= 5) {
           addMessage({
             role: 'assistant',
-            content: '⚠️ 已达到最大修复轮数（5轮）。\n\n建议：\n1. 重新描述需求，换个方式表达\n2. 检查硬件连接\n3. 尝试在 CLI 版本中获得更详细的调试信息',
+            content: '已达到最大修复轮数（5轮）。\n\n建议：\n1. 重新描述需求，换个方式表达\n2. 检查硬件连接\n3. 尝试在 CLI 版本中获得更详细的调试信息',
           });
           setAppState('idle');
           setFixRound(0);
+          setShowSimPanel(false);
         } else {
           await runAutoFix(userInput);
         }
       }
     } else {
-      // 新的端到端流程
       await runEndToEnd(userInput);
     }
   };
@@ -364,6 +365,9 @@ function App() {
     setFixRound(0);
     setSerialOutput('');
     simulationOutputRef.current = '';
+    setSimulationScreenshot(null);
+    setSimulationDiagram(null);
+    setShowSimPanel(false);
   };
 
   const handleSelectProject = async (projectId: string) => {
@@ -392,7 +396,24 @@ function App() {
     }
   };
 
-  // 根据状态确定输入框提示
+  const handleOpenInWokwi = async () => {
+    if (simulationDiagram) {
+      const encodedDiagram = encodeURIComponent(simulationDiagram);
+      const code = currentProject?.files.find(f => f.path.endsWith('.ino'))?.content || '';
+      const encodedCode = encodeURIComponent(code);
+      await open(`https://wokwi.com/projects/new?diagram=${encodedDiagram}&code=${encodedCode}`);
+    }
+  };
+
+  const handleReSimulate = async () => {
+    if (currentProject) {
+      setShowSimPanel(false);
+      setSimulationScreenshot(null);
+      setSimulationDiagram(null);
+      await runEndToEnd(currentProject.description);
+    }
+  };
+
   const getPlaceholder = () => {
     switch (appState) {
       case 'waiting_verify':
@@ -420,11 +441,11 @@ function App() {
         <div className="board-status">
           {detectedBoard ? (
             <span className="board-connected">
-              ● {detectedBoard.name} ({detectedBoard.port})
+              {detectedBoard.name} ({detectedBoard.port})
             </span>
           ) : (
             <span className="board-disconnected">
-              ○ 未检测到板卡 — 将使用仿真
+              未检测到板卡 — 将使用仿真
             </span>
           )}
         </div>
@@ -440,11 +461,22 @@ function App() {
           />
         </div>
 
-        {taskStatus && (
+        {taskStatus && !showSimPanel && (
           <TaskPanel
             status={taskStatus}
             logs={taskLogs}
             deployMethod={detectedBoard ? 'flash' : 'simulation'}
+          />
+        )}
+
+        {showSimPanel && (
+          <SimulationPanel
+            screenshotBase64={simulationScreenshot}
+            diagramJson={simulationDiagram}
+            serialOutput={serialOutput}
+            onClose={() => setShowSimPanel(false)}
+            onReSimulate={handleReSimulate}
+            onOpenInWokwi={handleOpenInWokwi}
           />
         )}
       </div>

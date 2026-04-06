@@ -59,6 +59,8 @@ pub struct DeployResult {
     pub success: bool,
     pub port: Option<String>,
     pub message: String,
+    pub screenshot_base64: Option<String>,
+    pub diagram_json: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

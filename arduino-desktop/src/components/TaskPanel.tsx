@@ -1,5 +1,5 @@
 import React from 'react';
-import { Terminal, CheckCircle, Loader, Hammer, Upload, Cpu, Zap, Activity, Bug } from 'lucide-react';
+import { Terminal, CheckCircle, Loader, Hammer, Upload, Cpu, Zap, Bug } from 'lucide-react';
 import './TaskPanel.css';
 
 interface TaskPanelProps {

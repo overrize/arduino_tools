@@ -1,4 +1,5 @@
-use crate::llm::{generate_arduino_code, validate_config, fix_arduino_code, diagnose_with_serial};
+use crate::llm::{generate_arduino_code, validate_config, fix_arduino_code, diagnose_with_serial, generate_diagram_json};
+use base64::Engine as _;
 use crate::project::{
     BuildResult, DeployResult, DetectedBoard, EndToEndRequest, LLMConfig, Project,
     ProjectFile, ProjectInfo, WokwiConfig,
@@ -311,7 +312,13 @@ async fn ensure_wokwi_cli(window: &Window) -> Result<bool, String> {
     }
 }
 
-async fn run_simulation(window: &Window, project_dir: &PathBuf, fqbn: &str) -> Result<DeployResult, String> {
+async fn run_simulation(
+    window: &Window,
+    project_dir: &PathBuf,
+    fqbn: &str,
+    code: &str,
+    llm_config: &LLMConfig,
+) -> Result<DeployResult, String> {
     emit_log(window, "未检测到板卡，切换到 Wokwi 仿真...");
 
     // 自动安装 wokwi-cli
@@ -321,6 +328,8 @@ async fn run_simulation(window: &Window, project_dir: &PathBuf, fqbn: &str) -> R
             success: false,
             port: None,
             message: format!("wokwi-cli 安装失败: {}", e),
+            screenshot_base64: None,
+            diagram_json: None,
         });
     }
 
@@ -331,10 +340,11 @@ async fn run_simulation(window: &Window, project_dir: &PathBuf, fqbn: &str) -> R
         emit_log(window, "请在设置中配置 Wokwi Token (https://wokwi.com/dashboard/ci)");
     }
 
+    let board_id = fqbn_to_wokwi_id(fqbn);
+
     // Create wokwi.toml config if missing
     let wokwi_toml = project_dir.join("wokwi.toml");
     if !wokwi_toml.exists() {
-        let board_id = fqbn_to_wokwi_id(fqbn);
         let toml_content = format!(
             "[wokwi]\nversion = 1\n\n[[chip]]\nname = \"{}\"\n",
             board_id
@@ -342,29 +352,45 @@ async fn run_simulation(window: &Window, project_dir: &PathBuf, fqbn: &str) -> R
         let _ = fs::write(&wokwi_toml, toml_content);
     }
 
-    // Create diagram.json if missing
-    let diagram_json = project_dir.join("diagram.json");
-    if !diagram_json.exists() {
-        let board_id = fqbn_to_wokwi_id(fqbn);
-        let diagram = serde_json::json!({
-            "version": 1,
-            "author": "Arduino Desktop",
-            "editor": "wokwi",
-            "parts": [{"type": board_id, "id": "board", "top": 0, "left": 0, "attrs": {}}],
-            "connections": []
-        });
-        let _ = fs::write(&diagram_json, serde_json::to_string_pretty(&diagram).unwrap_or_default());
-    }
+    // Generate smart diagram.json with LLM (fallback to minimal if LLM fails)
+    let diagram_path = project_dir.join("diagram.json");
+    emit_log(window, "正在分析代码生成电路图...");
+    let diagram_content = match generate_diagram_json(code, board_id, llm_config).await {
+        Ok(json_str) => {
+            emit_log(window, "智能电路图生成成功");
+            let _ = fs::write(&diagram_path, &json_str);
+            Some(json_str)
+        }
+        Err(e) => {
+            emit_log(window, &format!("电路图生成失败，使用默认配置: {}", e));
+            let fallback = serde_json::json!({
+                "version": 1,
+                "author": "Arduino Desktop",
+                "editor": "wokwi",
+                "parts": [{"type": board_id, "id": "board", "top": 0, "left": 0, "attrs": {}}],
+                "connections": []
+            });
+            let fallback_str = serde_json::to_string_pretty(&fallback).unwrap_or_default();
+            let _ = fs::write(&diagram_path, &fallback_str);
+            Some(fallback_str)
+        }
+    };
 
-    // 设置 WOKWI_CLI_TOKEN 环境变量
+    // Run wokwi-cli with screenshot capture
+    let screenshot_path = project_dir.join("simulation_screenshot.png");
     let mut cmd = Command::new("wokwi-cli");
-    cmd.args(&["--timeout", "10000"])
-        .current_dir(project_dir);
-    
+    cmd.args(&[
+        "--timeout", "10000",
+        "--screenshot-file", screenshot_path.to_str().unwrap_or("simulation_screenshot.png"),
+        "--screenshot-time", "3000",
+    ])
+    .current_dir(project_dir);
+
     if !wokwi_config.token.is_empty() {
         cmd.env("WOKWI_CLI_TOKEN", &wokwi_config.token);
     }
-    
+
+    emit_log(window, "启动 Wokwi 仿真（含截图捕获）...");
     let output = cmd.output()
         .map_err(|e| format!("运行 wokwi-cli 失败: {}", e))?;
 
@@ -373,6 +399,28 @@ async fn run_simulation(window: &Window, project_dir: &PathBuf, fqbn: &str) -> R
     let combined = format!("{}\n{}", stdout, stderr).trim().to_string();
 
     emit_log(window, &format!("Simulation output:\n{}", combined));
+
+    // Read screenshot and encode as base64
+    let screenshot_b64 = if screenshot_path.exists() {
+        match fs::read(&screenshot_path) {
+            Ok(bytes) => {
+                let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                emit_log(window, "仿真截图已捕获");
+                Some(encoded)
+            }
+            Err(_) => None,
+        }
+    } else {
+        None
+    };
+
+    // Emit events to frontend
+    if let Some(ref b64) = screenshot_b64 {
+        let _ = window.emit("simulation-screenshot", b64);
+    }
+    if let Some(ref diagram) = diagram_content {
+        let _ = window.emit("simulation-diagram", diagram);
+    }
 
     // wokwi-cli 超时退出码非 0，但对于持续运行的固件（LED 闪烁、按键控制等）
     // 超时是正常行为 —— 只要仿真成功启动过就视为成功
@@ -388,6 +436,8 @@ async fn run_simulation(window: &Window, project_dir: &PathBuf, fqbn: &str) -> R
         } else {
             format!("仿真失败: {}", combined)
         },
+        screenshot_base64: screenshot_b64,
+        diagram_json: diagram_content,
     })
 }
 
@@ -496,15 +546,16 @@ pub async fn run_end_to_end(
 
     let code = generate_arduino_code(&request.prompt, &fqbn, &config).await?;
 
+    let project_id = Uuid::new_v4().to_string();
     let project_name = request.name.unwrap_or_else(|| {
-        format!("project_{}", Uuid::new_v4().to_string()[..8].to_string())
+        format!("project_{}", &project_id[..8])
     });
 
-    let project_id = Uuid::new_v4().to_string();
     let project_dir = projects_dir.join(&project_id);
     fs::create_dir_all(&project_dir).map_err(|e| e.to_string())?;
 
-    let ino_filename = format!("{}.ino", project_name);
+    // Arduino-cli requires sketch filename to match directory name
+    let ino_filename = format!("{}.ino", project_id);
     let ino_path = project_dir.join(&ino_filename);
     fs::write(&ino_path, &code).map_err(|e| e.to_string())?;
 
@@ -512,7 +563,7 @@ pub async fn run_end_to_end(
 
     // Step 3: Build with auto-fix
     let build_result = build_with_auto_fix(
-        &window, &project_dir, &project_name, &request.prompt, &fqbn, &config
+        &window, &project_dir, &project_id, &request.prompt, &fqbn, &config
     ).await?;
     
     if !build_result.success {
@@ -546,9 +597,9 @@ pub async fn run_end_to_end(
             emit_log(&window, &format!("Flash failed, output:\n{}\n{}", flash_stdout, flash_stderr));
         }
     } else {
-        // No board — run simulation
+        // No board — run simulation with visualization
         emit_status(&window, "simulating");
-        let sim_result = run_simulation(&window, &project_dir, &fqbn).await?;
+        let sim_result = run_simulation(&window, &project_dir, &fqbn, &code, &config).await?;
         emit_log(&window, &sim_result.message);
         // 将仿真串口输出通过事件发送给前端，以便在聊天中展示
         let _ = window.emit("simulation-output", &sim_result.message);
@@ -607,7 +658,7 @@ pub async fn build_project(
     let proj_path = get_projects_dir().join(&project_dir);
 
     let output = Command::new("arduino-cli")
-        .args(&["compile", "--fqbn", &fqbn, "--output-dir", "build"])
+        .args(&["compile", "--fqbn", &fqbn, "--output-dir", "build", "."])
         .current_dir(&proj_path)
         .output()
         .map_err(|e| format!("Failed to execute arduino-cli: {}", e))?;
@@ -676,6 +727,8 @@ pub async fn flash_project(
                     success: true,
                     port: Some(board.port),
                     message: format!("Flashed to {} successfully!", board.name),
+                    screenshot_base64: None,
+                    diagram_json: None,
                 })
             } else {
                 Ok(DeployResult {
@@ -683,12 +736,17 @@ pub async fn flash_project(
                     success: false,
                     port: None,
                     message: format!("Flash failed: {}", combined),
+                    screenshot_base64: None,
+                    diagram_json: None,
                 })
             }
         }
         None => {
             emit_log(&window, "No board detected, switching to simulation...");
-            run_simulation(&window, &proj_path, &fqbn).await
+            // For flash_project, we don't have code/config to pass, use minimal simulation
+            let code = "// Simulation fallback";
+            let config = get_llm_config()?;
+            run_simulation(&window, &proj_path, &fqbn, code, &config).await
         }
     }
 }
@@ -922,13 +980,14 @@ pub fn capture_serial_output(port: String, baud_rate: u32, duration_secs: u64) -
 async fn build_with_auto_fix(
     window: &Window,
     project_dir: &PathBuf,
-    project_name: &str,
+    project_id: &str,
     prompt: &str,
     fqbn: &str,
     config: &LLMConfig,
 ) -> Result<BuildResult, String> {
     let max_fix_rounds = 3;
-    let ino_path = project_dir.join(format!("{}.ino", project_name));
+    // Arduino-cli requires sketch filename to match directory name
+    let ino_path = project_dir.join(format!("{}.ino", project_id));
     let mut lib_install_attempted = false;
     let mut fix_round = 0;
     
@@ -943,7 +1002,7 @@ async fn build_with_auto_fix(
         emit_log(window, &format!("正在{}（{}）...", label, fqbn));
         
         let output = Command::new("arduino-cli")
-            .args(&["compile", "--fqbn", fqbn, "--output-dir", "build"])
+            .args(&["compile", "--fqbn", fqbn, "--output-dir", "build", "."])
             .current_dir(&project_dir)
             .output()
             .map_err(|e| format!("Failed to execute arduino-cli: {}", e))?;
@@ -1049,7 +1108,8 @@ pub async fn debug_and_fix(
         &fs::read_to_string(&project_file).map_err(|e| e.to_string())?
     ).map_err(|e| e.to_string())?;
     
-    let ino_filename = format!("{}.ino", project_info.name);
+    // Arduino-cli requires sketch filename to match directory name (project_id)
+    let ino_filename = format!("{}.ino", request.project_id);
     let ino_path = project_dir.join(&ino_filename);
     
     if !ino_path.exists() {
@@ -1087,7 +1147,7 @@ pub async fn debug_and_fix(
             let build_result = build_with_auto_fix(
                 &window,
                 &project_dir,
-                &project_info.name,
+                &request.project_id,
                 &project_info.description,
                 &project_info.board,
                 &config,
