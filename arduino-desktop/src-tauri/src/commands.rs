@@ -990,9 +990,12 @@ async fn build_with_auto_fix(
     let ino_path = project_dir.join(format!("{}.ino", project_id));
     let mut lib_install_attempted = false;
     let mut fix_round = 0;
-    
+
     let fix_prompt = format!("{}\n【目标平台 FQBN: {}，请确保代码兼容该平台 API。】", prompt, fqbn);
-    
+
+    // Emit building status before starting compilation
+    emit_status(window, "building");
+
     loop {
         let label = if fix_round > 0 || lib_install_attempted {
             "重新编译"
