@@ -73,12 +73,29 @@
 
 .progress-step {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   font-size: 13px;
   padding: 3px 0;
   color: var(--text-secondary);
   transition: var(--transition);
+}
+
+.step-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.step-label {
+  display: block;
+}
+
+.step-detail {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.8;
+  font-style: italic;
 }
 
 .progress-step.done {
@@ -203,4 +220,49 @@
 .block-status.prompt {
   color: var(--text-primary);
   padding-top: 8px;
+}
+
+/* Log block — real-time output */
+.block-log {
+  padding: 0 20px;
+  margin: 8px 0;
+}
+
+.log-content {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+  animation: logFadeIn 0.2s ease;
+}
+
+.block-log.streaming .log-content {
+  border-right: 2px solid var(--accent);
+}
+
+.log-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 1em;
+  background: var(--accent);
+  margin-left: 2px;
+  animation: cursorBlink 1s ease-in-out infinite;
+}
+
+@keyframes logFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes cursorBlink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0.3; }
 }

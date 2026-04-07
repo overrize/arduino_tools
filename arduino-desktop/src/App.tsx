@@ -3,9 +3,9 @@ import { invoke } from '@tauri-apps/api/tauri';
 import { listen } from '@tauri-apps/api/event';
 
 import Header from './components/Header';
-import Terminal, { TerminalBlock, ProgressStep, CommandBlock, ProgressBlock, OutputBlock, StatusBlock } from './components/Terminal';
+import Terminal, { TerminalBlock, ProgressStep, CommandBlock, ProgressBlock, OutputBlock, StatusBlock, LogBlock } from './components/Terminal';
 
-type BlockInput = Omit<CommandBlock, 'timestamp'> | Omit<ProgressBlock, 'timestamp'> | Omit<OutputBlock, 'timestamp'> | Omit<StatusBlock, 'timestamp'>;
+type BlockInput = Omit<CommandBlock, 'timestamp'> | Omit<ProgressBlock, 'timestamp'> | Omit<OutputBlock, 'timestamp'> | Omit<StatusBlock, 'timestamp'> | Omit<LogBlock, 'timestamp'>;
 import PromptInput from './components/PromptInput';
 import SettingsModal from './components/SettingsModal';
 import './App.css';
@@ -58,6 +58,14 @@ const STATUS_LABELS: Record<string, string> = {
 const ALL_STEPS = ['detecting', 'generating', 'building', 'flashing'];
 const SIM_STEPS = ['detecting', 'generating', 'building', 'simulating'];
 
+const STEP_DETAILS: Record<string, string> = {
+  detecting: '扫描可用的 Arduino 板卡',
+  generating: '调用 AI 生成代码',
+  building: '编译固件文件',
+  flashing: '烧录到连接的板卡',
+  simulating: '在 Wokwi 中运行仿真',
+};
+
 function App() {
   const [blocks, setBlocks] = useState<TerminalBlock[]>([]);
   const [input, setInput] = useState('');
@@ -71,7 +79,6 @@ function App() {
   const endRef = useRef<HTMLDivElement>(null);
   const simulationOutputRef = useRef<string>('');
   const currentStepsRef = useRef<string[]>([]);
-  // Keep a stable ref for detectedBoard so event callbacks see latest value
   const detectedBoardRef = useRef<DetectedBoard | null>(null);
 
   useEffect(() => {
@@ -87,8 +94,21 @@ function App() {
       updateProgressBlock(currentStepsRef.current, detectedBoardRef.current);
     });
 
-    const unlistenLog = listen('e2e-log', (_event: any) => {
-      // Optionally append to an output block in future
+    const unlistenLog = listen('e2e-log', (event: any) => {
+      const logLine = event.payload as string;
+      setBlocks(prev => {
+        const lastBlockIdx = prev.length - 1;
+        const lastBlock = prev[lastBlockIdx];
+
+        if (lastBlock && lastBlock.type === 'log') {
+          // Append to existing log block
+          const updatedLog = { ...lastBlock, content: lastBlock.content + '\n' + logLine };
+          return [...prev.slice(0, lastBlockIdx), updatedLog];
+        } else {
+          // Create new log block
+          return [...prev, { type: 'log' as const, content: logLine, isStreaming: true, timestamp: Date.now() }];
+        }
+      });
     });
 
     const unlistenSimOutput = listen('simulation-output', (event: any) => {
@@ -126,14 +146,15 @@ function App() {
     const stepNames = board ? ALL_STEPS : SIM_STEPS;
     const steps: ProgressStep[] = stepNames.map(s => {
       const label = STATUS_LABELS[s] || s;
+      const detail = STEP_DETAILS[s];
       if (completedStatuses.includes(s)) {
         const idx = completedStatuses.lastIndexOf(s);
         if (idx === completedStatuses.length - 1) {
-          return { label, status: 'running' as const };
+          return { label, status: 'running' as const, detail };
         }
-        return { label, status: 'done' as const };
+        return { label, status: 'done' as const, detail };
       }
-      return { label, status: 'pending' as const };
+      return { label, status: 'pending' as const, detail };
     });
 
     setBlocks(prev => {
@@ -167,7 +188,11 @@ function App() {
     const stepNames = board ? ALL_STEPS : SIM_STEPS;
     addBlock({
       type: 'progress',
-      steps: stepNames.map(s => ({ label: STATUS_LABELS[s] || s, status: 'pending' as const })),
+      steps: stepNames.map(s => ({
+        label: STATUS_LABELS[s] || s,
+        status: 'pending' as const,
+        detail: STEP_DETAILS[s],
+      })),
     });
 
     try {
@@ -281,10 +306,10 @@ function App() {
     addBlock({
       type: 'progress',
       steps: [
-        { label: '诊断问题', status: 'running' },
-        { label: '修复代码', status: 'pending' },
-        { label: '重新编译', status: 'pending' },
-        { label: '验证', status: 'pending' },
+        { label: '诊断问题', status: 'running' as const, detail: '分析错误原因' },
+        { label: '修复代码', status: 'pending' as const, detail: '调整代码逻辑' },
+        { label: '重新编译', status: 'pending' as const, detail: '编译修复后的代码' },
+        { label: '验证', status: 'pending' as const, detail: '确认功能正常' },
       ],
     });
 

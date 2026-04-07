@@ -18,6 +18,7 @@ export interface ProgressBlock {
 export interface ProgressStep {
   label: string;
   status: 'done' | 'running' | 'pending' | 'error';
+  detail?: string;  // 步骤的详细说明
 }
 
 export interface OutputBlock {
@@ -35,7 +36,14 @@ export interface StatusBlock {
   timestamp: number;
 }
 
-export type TerminalBlock = CommandBlock | ProgressBlock | OutputBlock | StatusBlock;
+export interface LogBlock {
+  type: 'log';
+  content: string;
+  isStreaming?: boolean;
+  timestamp: number;
+}
+
+export type TerminalBlock = CommandBlock | ProgressBlock | OutputBlock | StatusBlock | LogBlock;
 
 interface TerminalProps {
   blocks: TerminalBlock[];
@@ -82,7 +90,10 @@ const Terminal: React.FC<TerminalProps> = ({ blocks, endRef }) => {
                 {block.steps.map((step, j) => (
                   <div key={j} className={`progress-step ${step.status}`}>
                     <StepIcon status={step.status} />
-                    <span>{step.label}</span>
+                    <div className="step-content">
+                      <span className="step-label">{step.label}</span>
+                      {step.detail && <span className="step-detail">{step.detail}</span>}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -101,6 +112,13 @@ const Terminal: React.FC<TerminalProps> = ({ blocks, endRef }) => {
             return (
               <div key={i} className={`block block-status ${block.variant}`}>
                 <span>{block.message}</span>
+              </div>
+            );
+          case 'log':
+            return (
+              <div key={i} className={`block block-log ${block.isStreaming ? 'streaming' : ''}`}>
+                <pre className="log-content">{block.content}</pre>
+                {block.isStreaming && <span className="log-cursor" />}
               </div>
             );
           default:
