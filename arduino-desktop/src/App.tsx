@@ -158,10 +158,23 @@ function App() {
     });
 
     setBlocks(prev => {
-      const last = prev[prev.length - 1];
-      if (last && last.type === 'progress') {
-        return [...prev.slice(0, -1), { ...last, steps }];
+      // Find the last ProgressBlock (not just the last block)
+      let progressBlockIdx = -1;
+      for (let i = prev.length - 1; i >= 0; i--) {
+        if (prev[i].type === 'progress') {
+          progressBlockIdx = i;
+          break;
+        }
       }
+
+      if (progressBlockIdx >= 0) {
+        // Update existing progress block
+        const updated = [...prev];
+        const progressBlock = prev[progressBlockIdx] as ProgressBlock;
+        updated[progressBlockIdx] = { ...progressBlock, steps } as TerminalBlock;
+        return updated;
+      }
+      // Create new progress block if none exists
       return [...prev, { type: 'progress', steps, timestamp: Date.now() }];
     });
   };
