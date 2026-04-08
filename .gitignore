@@ -22,10 +22,13 @@ env/
 .pytest_cache/
 .coverage
 htmlcov/
+test/
+AUTO_FIX_IMPLEMENTATION.md
 
 # Generated
 arduino_projects/
 test_output/
+**/package-lock.json
 
 # Node
 node_modules/
