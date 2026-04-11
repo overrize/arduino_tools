@@ -39,6 +39,18 @@ export interface DebugResult {
   message: string;
 }
 
+export interface SimulationFile {
+  file_type: string;
+  path: string;
+  exists: boolean;
+}
+
+export interface SimulationFiles {
+  project_id: string;
+  project_dir: string;
+  files: SimulationFile[];
+}
+
 type AppState = 'idle' | 'running_e2e' | 'waiting_verify' | 'auto_fixing';
 
 // Map e2e-status strings to progress step labels
@@ -434,6 +446,16 @@ function App() {
       }
     } else {
       await runEndToEnd(userInput);
+    }
+  };
+
+  const getSimulationFiles = async (projectId: string) => {
+    try {
+      const result = await invoke<SimulationFiles>('get_simulation_files', { projectId });
+      return result;
+    } catch (error: any) {
+      console.error('Failed to get simulation files:', error);
+      return null;
     }
   };
 

@@ -2,7 +2,7 @@ use crate::llm::{generate_arduino_code, validate_config, fix_arduino_code, diagn
 use base64::Engine as _;
 use crate::project::{
     BuildResult, DeployResult, DetectedBoard, EndToEndRequest, LLMConfig, Project,
-    ProjectFile, ProjectInfo, WokwiConfig,
+    ProjectFile, ProjectInfo, WokwiConfig, SimulationFiles, SimulationFile,
 };
 use std::fs;
 use std::path::PathBuf;
@@ -1225,4 +1225,54 @@ pub async fn debug_and_fix(
         }
         Err(e) => Err(format!("诊断失败: {}", e)),
     }
+}
+
+#[tauri::command]
+pub fn get_simulation_files(project_id: String) -> Result<SimulationFiles, String> {
+    let projects_dir = get_projects_dir();
+    let project_dir = projects_dir.join(&project_id);
+
+    if !project_dir.exists() {
+        return Err(format!("项目目录不存在: {}", project_dir.display()));
+    }
+
+    let mut files = Vec::new();
+
+    // diagram.json
+    let diagram_path = project_dir.join("diagram.json");
+    files.push(SimulationFile {
+        file_type: "diagram".to_string(),
+        path: diagram_path.to_string_lossy().to_string(),
+        exists: diagram_path.exists(),
+    });
+
+    // wokwi.toml
+    let wokwi_toml_path = project_dir.join("wokwi.toml");
+    files.push(SimulationFile {
+        file_type: "wokwi_config".to_string(),
+        path: wokwi_toml_path.to_string_lossy().to_string(),
+        exists: wokwi_toml_path.exists(),
+    });
+
+    // sketch.ino (main code file)
+    let sketch_path = project_dir.join("sketch.ino");
+    files.push(SimulationFile {
+        file_type: "sketch".to_string(),
+        path: sketch_path.to_string_lossy().to_string(),
+        exists: sketch_path.exists(),
+    });
+
+    // simulation_screenshot.png
+    let screenshot_path = project_dir.join("simulation_screenshot.png");
+    files.push(SimulationFile {
+        file_type: "screenshot".to_string(),
+        path: screenshot_path.to_string_lossy().to_string(),
+        exists: screenshot_path.exists(),
+    });
+
+    Ok(SimulationFiles {
+        project_id,
+        project_dir: project_dir.to_string_lossy().to_string(),
+        files,
+    })
 }

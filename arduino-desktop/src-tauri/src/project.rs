@@ -76,3 +76,17 @@ pub struct FlashResult {
     pub port: Option<String>,
     pub error: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulationFile {
+    pub file_type: String, // "diagram", "wokwi_config", "sketch", "screenshot"
+    pub path: String,
+    pub exists: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulationFiles {
+    pub project_id: String,
+    pub project_dir: String,
+    pub files: Vec<SimulationFile>,
+}
