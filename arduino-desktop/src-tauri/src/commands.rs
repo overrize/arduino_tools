@@ -605,6 +605,20 @@ pub async fn run_end_to_end(
         let _ = window.emit("simulation-output", &sim_result.message);
     }
 
+    // [新增] 获取编译产物的 hex 文件路径
+    let hex_path = {
+        let build_dir = project_dir.join("build");
+        let hex_file = build_dir.join(format!("{}.ino.hex", project_id));
+
+        if hex_file.exists() {
+            let path_str = hex_file.to_string_lossy().to_string();
+            // 确保路径使用正斜杠（跨平台兼容）
+            Some(path_str.replace("\\", "/"))
+        } else {
+            None
+        }
+    };
+
     // Save project
     let project = Project {
         id: project_id.clone(),
@@ -616,6 +630,8 @@ pub async fn run_end_to_end(
             content: code,
         }],
         created_at: chrono::Local::now().to_rfc3339(),
+        hex_path,  // [新增]
+        diagram_json: None,  // [新增，预留给 Phase 3]
     };
 
     save_project_file(&project_dir, &project_id, &project_name, &fqbn, &request.prompt)?;

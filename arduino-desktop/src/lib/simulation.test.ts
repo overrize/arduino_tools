@@ -1,0 +1,154 @@
+/**
+ * 简单的仿真核心功能测试
+ * 验证 avr8js 加载和执行的基本流程
+ */
+
+import { loadHexAndInitAVR, stepCPUMultiple, readPort } from './simulation';
+
+// 这是一个基本的 blink.hex 内容（部分）
+const BLINK_HEX = `
+:020000040000FA
+:1000000012C028C027C026C025C024C023C022C088
+:100010021C002BC01AC019C018C017C016C015C04D
+:10002000EFF0F9C213C212C211C210C20FC20EC20E
+:100030000DC20CC20BC20AC209C208C207C206C08D
+:10004000050611241FBECFEFD2E0DEBFCDBF11E0AC
+:10005000A0E0B1E0E2ECF8E000E00BBF02C007D04B
+:10006000F7CFEF92FF920F931F9313B81FBA0ED08C
+:10007000F6DFE7DF1F910F91FF90EF900895CF93EB
+:10008000C82F85919491FF912F917F9187FD81957F
+:100090009F5F8170CF911895CF93882309F43AC088
+:1000A000713409F49BC0C0939300DC938A97818387
+:1000B000909393008A8B8E8B8D8B8F8B8C8B0E942B
+:1000C00001D0E7DF813009F495C0893008F4F3C0EB
+:1000D000809395000E9401D0E1DFDCC0809391005D
+:1000E000909392000E9401D0D8DFD4C08093910063
+:1000F000909392000E9401D0D0DFC8C081B58AE11C
+:10010000E6DFA0E0B0E0E0E0F0E0CF010895E89490
+:10011000911AA3E0B0E0ECE0F4E0011D12D1E0913A
+:10012000C400F0E0EF5FF60F089520E0E0E0F0E0A1
+:10013000E0E0F0E00E94A3D0089580B780658A95ED
+:10014000F1F700C0089589E18A95F1F700C0089585
+:10015000209195000E94A3D008950E94A5D0A1EC7D
+:100160001CE0D0F00E940FD1089581E591E00E94D0
+:10017000FFD20895CF92DF920BD00195F894FB9CFA
+:1001800006D00197FBC00DB10FB10E94DFD08CDFE0
+:1001900011D0CF90DF900895CF92DF920CD00195FA
+:1001A000F894FB9C0AD00197FBC0FA01FB01E08A1D
+:1001B000F18A09D0C0FD01D00DB10FB10E94DFD046
+:1001C000E8DFF0E0E0E00895CF92DF920ED00195B1
+:1001D000F894FB9C0ED00197FBC0FA01FB0120B59B
+:1001E00009B514D0C0FD0DD00DB10FB10E94DFD084
+:1001F000E2DFDC01CB01C0FDD5DF00D00FB10E94C4
+:10020000DFD0CBDFF0E0E0E008958A81923009F0C3
+:100210008EC081B5809399008A81909398008AB131
+:10022000C9010F9081B5809399008A81909398006A
+:100230008AB1C9010F900895809398008A81909374
+:1002400099008AB1899580B59F99F6017F0161E078
+:10025000A70160E0B0E0CF0105D0F894FB9C06D040
+:100260000197FBC00DB10FB10E94DFD000D00FB10B
+:100270000E94DFD0BADFF0E0E0E008956B9980B531
+:100280000E94A3D08AB9D9DFC894000A0009089512
+:1002900000009999888A10B1DBDFF0E0E0E0089550
+:1002A000849180B58BB98AB1909399008A8B8E8B37
+:1002B0008D8B8F8B8C8B9CDFCADFC894000A0009B2
+:1002C00008950895000000000100000003000000D8
+:1002D000070000000F0000001F0000003F000000BF
+:1002E00001020408102040801020408000000000E7
+:0402F000000000004C
+:00000001FF
+`;
+
+/**
+ * 基本测试：验证 HEX 加载和 CPU 初始化
+ */
+export async function testLoadHex() {
+  console.log('Testing HEX loading...');
+  try {
+    const avrCore = await loadHexAndInitAVR(BLINK_HEX);
+    console.log('✓ HEX loaded successfully');
+    console.log('  Flash size:', avrCore.flash.length);
+    console.log('  Memory size:', avrCore.memory.length);
+    return avrCore;
+  } catch (error) {
+    console.error('✗ Failed to load HEX:', error);
+    throw error;
+  }
+}
+
+/**
+ * CPU 执行测试
+ */
+export async function testCPUExecution() {
+  console.log('\nTesting CPU execution...');
+  try {
+    const avrCore = await loadHexAndInitAVR(BLINK_HEX);
+
+    // 执行 1000 个 CPU 周期
+    stepCPUMultiple(avrCore.cpu, 1000);
+    console.log('✓ CPU executed 1000 cycles');
+
+    // 再执行 10000 个周期
+    for (let i = 0; i < 10; i++) {
+      stepCPUMultiple(avrCore.cpu, 1000);
+    }
+    console.log('✓ CPU executed additional 10000 cycles');
+
+    return avrCore;
+  } catch (error) {
+    console.error('✗ CPU execution failed:', error);
+    throw error;
+  }
+}
+
+/**
+ * GPIO 读取测试
+ */
+export async function testGPIORead(avrCore?: any) {
+  console.log('\nTesting GPIO reading...');
+  try {
+    const core = avrCore || (await loadHexAndInitAVR(BLINK_HEX));
+
+    // 执行足够的周期以让程序运行
+    stepCPUMultiple(core.cpu, 50000);
+
+    // 读取各个端口
+    const portB = readPort(core.cpu, 'B');
+    const portC = readPort(core.cpu, 'C');
+    const portD = readPort(core.cpu, 'D');
+
+    console.log('✓ GPIO read successful');
+    console.log('  PORTB:', '0x' + portB.toString(16));
+    console.log('  PORTC:', '0x' + portC.toString(16));
+    console.log('  PORTD:', '0x' + portD.toString(16));
+
+    return { portB, portC, portD };
+  } catch (error) {
+    console.error('✗ GPIO read failed:', error);
+    throw error;
+  }
+}
+
+/**
+ * 运行所有测试
+ */
+export async function runAllTests() {
+  console.log('========== Simulation Core Tests ==========\n');
+
+  try {
+    const avrCore = await testLoadHex();
+    await testCPUExecution();
+    await testGPIORead(avrCore);
+
+    console.log('\n✓ All tests passed!');
+    return true;
+  } catch (error) {
+    console.error('\n✗ Tests failed');
+    return false;
+  }
+}
+
+// 如果直接导入此文件，运行测试
+if (typeof window !== 'undefined' && (window as any).__RUN_TESTS__) {
+  runAllTests();
+}

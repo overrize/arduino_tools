@@ -13,6 +13,9 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^1.5.0",
+    "@wokwi/elements": "^1.9.2",
+    "avr8js": "^0.21.0",
+    "intel-hex": "^0.2.0",
     "lucide-react": "^0.294.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"

@@ -4,6 +4,7 @@ import { listen } from '@tauri-apps/api/event';
 
 import Header from './components/Header';
 import Terminal, { TerminalBlock, ProgressStep, CommandBlock, ProgressBlock, OutputBlock, StatusBlock, LogBlock } from './components/Terminal';
+import SimulationPanel from './components/SimulationPanel';  // [新增]
 
 type BlockInput = Omit<CommandBlock, 'timestamp'> | Omit<ProgressBlock, 'timestamp'> | Omit<OutputBlock, 'timestamp'> | Omit<StatusBlock, 'timestamp'> | Omit<LogBlock, 'timestamp'>;
 import PromptInput from './components/PromptInput';
@@ -17,6 +18,8 @@ export interface Project {
   description: string;
   files: ProjectFile[];
   createdAt: number;
+  hex_path?: string;  // [新增] 编译产物 hex 文件路径
+  diagram_json?: string;  // [新增] 电路图 JSON（预留）
 }
 
 export interface ProjectFile {
@@ -88,6 +91,9 @@ function App() {
   const [detectedBoard, setDetectedBoard] = useState<DetectedBoard | null>(null);
   const [serialOutput, setSerialOutput] = useState('');
   const [fixRound, setFixRound] = useState(0);
+  // [新增] 仿真模式状态
+  const [showSimulation, setShowSimulation] = useState(false);
+  const [simulationHexPath, setSimulationHexPath] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
   const simulationOutputRef = useRef<string>('');
   const currentStepsRef = useRef<string[]>([]);
@@ -227,6 +233,13 @@ function App() {
 
       setCurrentProject(project);
 
+      // [新增] 检查是否有 hex_path 文件，自动显示仿真
+      if (project.hex_path) {
+        setSimulationHexPath(project.hex_path);
+        setShowSimulation(true);
+        return; // 直接进入仿真模式，不显示 Terminal 输出
+      }
+
       // Mark all progress steps as done
       setBlocks(prev => {
         const last = prev[prev.length - 1];
@@ -239,7 +252,7 @@ function App() {
         return prev;
       });
 
-      const method = board ? `烧录到 ${board.name}` : 'Wokwi 仿真';
+      const method = board ? `烧录到 ${board.name}` : '虚拟仿真';
       addBlock({
         type: 'output',
         title: '项目',
@@ -449,6 +462,7 @@ function App() {
     }
   };
 
+  // @ts-expect-error - getSimulationFiles is defined for future use
   const getSimulationFiles = async (projectId: string) => {
     try {
       const result = await invoke<SimulationFiles>('get_simulation_files', { projectId });
@@ -474,14 +488,27 @@ function App() {
   return (
     <div className="app">
       <Header board={detectedBoard} onOpenSettings={() => setShowSettings(true)} />
-      <Terminal blocks={blocks} endRef={endRef} />
-      <PromptInput
-        value={input}
-        onChange={setInput}
-        onSubmit={handleSubmit}
-        disabled={isProcessing}
-        placeholder={getPlaceholder()}
-      />
+
+      {/* [新增] 仿真模式 */}
+      {showSimulation && simulationHexPath ? (
+        <SimulationPanel
+          hexPath={simulationHexPath}
+          onClose={() => setShowSimulation(false)}
+        />
+      ) : (
+        /* 编辑模式 */
+        <>
+          <Terminal blocks={blocks} endRef={endRef} />
+          <PromptInput
+            value={input}
+            onChange={setInput}
+            onSubmit={handleSubmit}
+            disabled={isProcessing}
+            placeholder={getPlaceholder()}
+          />
+        </>
+      )}
+
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </div>
   );

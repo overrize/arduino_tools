@@ -1,0 +1,24 @@
+.led-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+}
+
+.led-bulb {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.3);
+  background-color: #ff0000;
+  transition: all 100ms ease-out;
+}
+
+.led-label {
+  font-size: 12px;
+  color: #666;
+  text-align: center;
+  min-width: 50px;
+  font-weight: 500;
+}

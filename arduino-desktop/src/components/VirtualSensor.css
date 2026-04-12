@@ -1,0 +1,144 @@
+.virtual-sensor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+.sensor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sensor-label {
+  font-weight: 600;
+  font-size: 13px;
+  color: #1e293b;
+}
+
+.sensor-pin {
+  font-size: 11px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+.sensor-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.sensor-slider {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(
+    to right,
+    #cbd5e1 0%,
+    #cbd5e1 100%
+  );
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  z-index: 5;
+}
+
+.sensor-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.4);
+  transition: all 150ms ease;
+}
+
+.sensor-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.6);
+}
+
+.sensor-slider::-webkit-slider-thumb:active {
+  transform: scale(1.1);
+}
+
+.sensor-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.4);
+  transition: all 150ms ease;
+}
+
+.sensor-slider::-moz-range-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.6);
+}
+
+.sensor-slider::-moz-range-thumb:active {
+  transform: scale(1.1);
+}
+
+/* 滑块填充效果 */
+.slider-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 6px;
+  background: linear-gradient(
+    to right,
+    #3b82f6 0%,
+    #2563eb 100%
+  );
+  border-radius: 3px;
+  opacity: 0.3;
+  pointer-events: none;
+  z-index: 1;
+  transition: width 100ms ease;
+}
+
+.sensor-value {
+  text-align: center;
+  font-size: 12px;
+  color: #475569;
+  font-family: 'Courier New', monospace;
+  font-weight: 500;
+}
+
+/* 响应式 */
+@media (max-width: 640px) {
+  .virtual-sensor {
+    padding: 8px;
+    gap: 6px;
+  }
+
+  .sensor-label {
+    font-size: 12px;
+  }
+
+  .sensor-slider {
+    height: 5px;
+  }
+
+  .sensor-slider::-webkit-slider-thumb {
+    width: 14px;
+    height: 14px;
+  }
+
+  .sensor-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+  }
+}

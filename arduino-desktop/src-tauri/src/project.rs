@@ -25,6 +25,10 @@ pub struct Project {
     pub description: String,
     pub files: Vec<ProjectFile>,
     pub created_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hex_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub diagram_json: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
