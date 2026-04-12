@@ -1,0 +1,174 @@
+# agent-guard rules for Arduino Tools project
+# Optimized for autonomous code generation and testing
+
+rules:
+  # === ALLOW RULES ===
+
+  # Generated code files (safe to create/modify)
+  - name: allow_generated_code
+    layer: 1
+    type: whitelist
+    action: ALLOW
+    patterns:
+      - "*/arduino-tools/projects/*/sketch.ino"
+      - "*/arduino-tools/projects/*/diagram.json"
+      - "*/arduino-tools/projects/*/wokwi.toml"
+      - "*/arduino-tools/projects/*/src/*.ino"
+      - "*/arduino-tools/projects/*/build/**"
+      - "*/arduino-tools/projects/*/simulation_screenshot.png"
+    reason: "Generated files during code generation and simulation"
+
+  # Project structure
+  - name: allow_project_files
+    layer: 1
+    type: whitelist
+    action: ALLOW
+    patterns:
+      - "*/arduino-tools/projects/*/**"
+    reason: "Project files and build artifacts"
+
+  # Safe build and compilation
+  - name: allow_build_commands
+    layer: 1
+    type: whitelist
+    action: ALLOW
+    patterns:
+      - "cargo.*build.*"
+      - "cargo.*check.*"
+      - "npm.*install.*"
+      - "npm.*run.*build.*"
+      - "npm.*run.*dev.*"
+      - "npm.*run.*test.*"
+      - "arduino-cli.*compile.*"
+      - "arduino-cli.*board.*list.*"
+      - "arduino-cli.*upload.*"
+      - "wokwi-cli.*"
+      - "rustup.*update.*"
+    reason: "Standard build tools and compilation"
+
+  # Safe file operations
+  - name: allow_safe_reads
+    layer: 1
+    type: whitelist
+    action: ALLOW
+    patterns:
+      - "Read:.*"
+      - "Glob:.*"
+      - "Grep:.*"
+    reason: "Safe read-only operations"
+
+  # === DENY/CONFIRM RULES ===
+
+  # Protect environment and secrets
+  - name: protect_env_files
+    layer: 2
+    type: blacklist
+    action: DENY
+    patterns:
+      - "*/.env"
+      - "*/.env.*"
+      - "**/.git/config"
+      - "**/private.key"
+      - "**/secret*"
+    reason: "Never modify environment or secret files automatically"
+
+  # Protect git operations
+  - name: protect_git_force_operations
+    layer: 2
+    type: blacklist
+    action: DENY
+    patterns:
+      - "git.*push.*--force"
+      - "git.*reset.*--hard"
+      - "git.*rebase.*-f"
+    reason: "Force git operations need human confirmation"
+
+  # Protect Cargo.lock in root
+  - name: protect_root_cargo_lock
+    layer: 2
+    type: blacklist
+    action: CONFIRM
+    patterns:
+      - "^Cargo.lock"
+      - "package-lock.json"
+    reason: "Root lock files require review before modification"
+
+  # Limit destructive operations
+  - name: block_recursive_deletes
+    layer: 2
+    type: blacklist
+    action: DENY
+    patterns:
+      - "rm.*-rf.*/"
+      - "rmdir.*"
+    reason: "Prevent accidental recursive deletion"
+
+  # === ANOMALY DETECTION ===
+
+  # Rate limit simulations (prevent runaway tests)
+  - name: rate_limit_simulations
+    layer: 4
+    type: anomaly-detection
+    action: CONFIRM
+    threshold: 10
+    window_seconds: 600
+    pattern: "wokwi-cli|simulation"
+    reason: "Prevent excessive simulation runs that indicate loops"
+
+  # Rate limit API calls
+  - name: rate_limit_api_calls
+    layer: 4
+    type: anomaly-detection
+    action: CONFIRM
+    threshold: 20
+    window_seconds: 300
+    pattern: "invoke.*llm|generate_.*code"
+    reason: "Detect API call spikes indicating issues"
+
+  # === SANITIZATION ===
+
+  # Redact credentials from output
+  - name: sanitize_api_keys
+    layer: 5
+    type: credential-redaction
+    action: SANITIZE
+    patterns:
+      - "api_key|API_KEY"
+      - "token|TOKEN"
+      - "secret|SECRET"
+      - "password|PASSWORD"
+      - "ANTHROPIC_API_KEY"
+      - "MOONSHOT.*KEY"
+      - "WOKWI_CLI_TOKEN"
+    reason: "Prevent accidental credential leakage"
+
+  - name: sanitize_file_paths
+    layer: 5
+    type: credential-redaction
+    action: SANITIZE
+    patterns:
+      - "(/Users/|/home/|C:\\Users\\)"
+    reason: "Obfuscate home directory paths"
+
+  # === TRUST ESCALATION ===
+
+  # Build operations earn trust
+  - name: trust_successful_builds
+    layer: 3
+    type: trust-based
+    action: ALLOW_ON_TRUST
+    min_trust: 1
+    patterns:
+      - "cargo.*build"
+      - "npm.*run.*build"
+    reason: "Trust increases after successful builds"
+
+  # Code generation can happen at trust level 0
+  - name: allow_code_gen_level0
+    layer: 1
+    type: whitelist
+    action: ALLOW
+    patterns:
+      - "Write:*/sketch.ino"
+      - "Edit:*/sketch.ino"
+    reason: "Code generation is core function"
