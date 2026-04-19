@@ -37,6 +37,10 @@ dist/
 # Rust / Tauri
 target/
 
+# Build logs
+*.log
+build-*.txt
+
 # OS
 .DS_Store
 Thumbs.db

@@ -10,7 +10,7 @@
       "all": false,
       "fs": {
         "all": true,
-        "scope": ["$DOCUMENTARY/arduino-tools/**", "$HOME/.arduino-tools/**", "$APPDATA/**"]
+        "scope": ["$HOME/**", "$APPDATA/**", "$DOCUMENTARY/**"]
       },
       "path": {
         "all": true

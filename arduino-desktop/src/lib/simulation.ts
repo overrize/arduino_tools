@@ -1,5 +1,8 @@
 import { CPU } from 'avr8js';
-import { parseIntelHex } from 'intel-hex';
+import * as intelHexModule from 'intel-hex';
+import { readTextFile } from '@tauri-apps/api/fs';
+
+const parseIntelHex = (intelHexModule as any).parse;
 
 export interface AVRCore {
   cpu: CPU;
@@ -39,17 +42,14 @@ export async function loadHexAndInitAVR(hexData: string): Promise<AVRCore> {
 }
 
 /**
- * 从文件路径加载 HEX 文件
+ * 从文件路径加载 HEX 文件（支持 Tauri 本地文件系统）
  * @param hexPath - HEX 文件路径
  * @returns AVR CPU 实例
  */
 export async function loadHexFromFile(hexPath: string): Promise<AVRCore> {
   try {
-    const response = await fetch(hexPath);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch HEX file: ${response.statusText}`);
-    }
-    const hexContent = await response.text();
+    // 使用 Tauri 的文件系统 API 读取本地文件
+    const hexContent = await readTextFile(hexPath);
     return loadHexAndInitAVR(hexContent);
   } catch (error) {
     throw new Error(`Failed to load HEX from file: ${error instanceof Error ? error.message : String(error)}`);
