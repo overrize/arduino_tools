@@ -1,6 +1,6 @@
 {
   "name": "@arduino-tools/agent-framework",
-  "version": "1.0.0",
+  "version": "0.3.0",
   "description": "Multi-Agent Framework for Arduino Tools",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

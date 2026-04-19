@@ -1,6 +1,6 @@
 [package]
 name = "arduino-desktop"
-version = "0.1.0"
+version = "0.3.0"
 description = "Arduino Desktop - AI-powered Arduino development tool"
 authors = ["Arduino Tools Team"]
 license = "MIT"

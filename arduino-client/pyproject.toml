@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "arduino-client"
-version = "0.1.0"
+version = "0.3.0"
 description = "Arduino Client — Arduino 自然语言端到端开发 Client（LLM + arduino-cli）"
 readme = "README.md"
 license = { text = "MIT" }
