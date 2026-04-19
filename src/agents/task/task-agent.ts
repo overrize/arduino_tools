@@ -10,6 +10,7 @@ import {
 import { memorySystem } from '../../agent/memory/memory';
 import { skillRegistry } from '../../agent/skills/registry';
 import { agentRuntime } from '../../agent/runtime/runtime';
+import { AgentCommunicationHub } from '../../agent/communication/agent-hub';
 
 export interface TaskContext {
   taskId: string;
@@ -27,6 +28,7 @@ export abstract class TaskAgent extends EventEmitter {
   protected context: TaskContext;
   protected running: boolean = false;
   protected startTime: number = 0;
+  protected communicationHub: AgentCommunicationHub;
 
   constructor(
     id: string,
@@ -47,6 +49,7 @@ export abstract class TaskAgent extends EventEmitter {
       requirements,
       artifacts: new Map(),
     };
+    this.communicationHub = new AgentCommunicationHub(this.id, parentId);
   }
 
   async execute(): Promise<TaskResult> {
@@ -98,6 +101,7 @@ export abstract class TaskAgent extends EventEmitter {
       timestamp: Date.now(),
     };
 
+    await this.communicationHub.reportProgress(this.taskId, percent, message);
     await memorySystem.write(this.id, 'progress', progress);
     this.emit('progress', progress);
   }
@@ -124,6 +128,7 @@ export abstract class TaskAgent extends EventEmitter {
   }
 
   protected async saveResult(result: TaskResult): Promise<void> {
+    await this.communicationHub.reportResult(this.taskId, result);
     await memorySystem.write(this.id, 'result', result);
     await memorySystem.write(this.parentId, `task_result:${this.taskId}`, result);
   }
@@ -136,11 +141,15 @@ export abstract class TaskAgent extends EventEmitter {
       parentId: this.parentId,
       invokeSkill: this.invokeSkill.bind(this),
       sendMessage: async (to: string, type: MessageType, payload: any) => {
-        // Implement message sending
+        await this.communicationHub.sendToParent(type, payload);
       },
     };
 
     return await skillRegistry.executeSkill(name, args, context);
+  }
+
+  getCommunicationHub(): AgentCommunicationHub {
+    return this.communicationHub;
   }
 
   abstract performTask(): Promise<any>;

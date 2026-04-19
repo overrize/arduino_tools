@@ -1,6 +1,7 @@
 export * from './agent/types';
 export * from './agent/runtime/runtime';
 export * from './agent/communication/message-bus';
+export * from './agent/communication/agent-hub';
 export * from './agent/memory/memory';
 export * from './agent/skills/registry';
 export * from './agents/master/master-agent';

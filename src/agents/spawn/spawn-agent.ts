@@ -10,6 +10,7 @@ import {
 import { agentRuntime } from '../../agent/runtime/runtime';
 import { memorySystem } from '../../agent/memory/memory';
 import { skillRegistry } from '../../agent/skills/registry';
+import { AgentCommunicationHub } from '../../agent/communication/agent-hub';
 
 interface SpawnConfig {
   projectId: string;
@@ -34,6 +35,7 @@ export class SpawnAgent extends EventEmitter {
   private completedTasks: Map<string, TaskResult> = new Map();
   private running: boolean = false;
   private config: SpawnConfig;
+  private communicationHub: AgentCommunicationHub;
 
   constructor(id: string, masterId: string, config: SpawnConfig) {
     super();
@@ -45,6 +47,24 @@ export class SpawnAgent extends EventEmitter {
       autoRetryFailed: true,
       ...config,
     };
+    this.communicationHub = new AgentCommunicationHub(this.id, masterId);
+  }
+
+  private setupCommunicationHandlers(): void {
+    this.communicationHub.on('message:sent', (data) => {
+      this.emit('communication:sent', data);
+    });
+
+    this.communicationHub.onMessage(MessageType.CONTEXT_SHARE, async (payload) => {
+      if (payload.project) {
+        await memorySystem.write(this.id, 'project_context', payload.project);
+      }
+      this.emit('context:received', payload);
+    });
+
+    this.communicationHub.onMessage(MessageType.EVENT_BROADCAST, (payload) => {
+      this.emit('broadcast:received', payload);
+    });
   }
 
   async initialize(): Promise<void> {
@@ -55,9 +75,24 @@ export class SpawnAgent extends EventEmitter {
     };
     await memorySystem.initializeMemory(this.id, memoryRef);
 
+    try {
+      const parentContext = await this.communicationHub.requestParentContext();
+      if (parentContext) {
+        await memorySystem.write(this.id, 'parent_context', parentContext);
+      }
+    } catch (error) {
+      console.warn(`Failed to get parent context: ${error}`);
+    }
+
     this.running = true;
     this.startTaskProcessor();
-    
+
+    await this.communicationHub.sendToParent(MessageType.STATUS_UPDATE, {
+      agentId: this.id,
+      status: 'ready',
+      projectId: this.projectId,
+    });
+
     this.emit('initialized', { agentId: this.id, projectId: this.projectId });
   }
 
@@ -128,6 +163,8 @@ export class SpawnAgent extends EventEmitter {
       allocation.progress = percent;
     }
 
+    await this.communicationHub.reportProgress(taskId, percent, message);
+
     const progress: TaskProgress = {
       taskId,
       percent,
@@ -143,6 +180,7 @@ export class SpawnAgent extends EventEmitter {
     this.activeTasks.delete(taskId);
     this.completedTasks.set(taskId, result);
 
+    await this.communicationHub.reportResult(taskId, result);
     await memorySystem.write(this.id, `result:${taskId}`, result);
 
     if (result.status === 'failed' && this.config.autoRetryFailed) {
@@ -180,11 +218,18 @@ export class SpawnAgent extends EventEmitter {
 
   async shutdown(): Promise<void> {
     this.running = false;
-    
+
     for (const [taskId, allocation] of this.activeTasks) {
+      this.communicationHub.unregisterChild(allocation.agentId);
       await agentRuntime.terminateAgent(allocation.agentId);
     }
-    
+
+    await this.communicationHub.sendToParent(MessageType.STATUS_UPDATE, {
+      agentId: this.id,
+      status: 'terminated',
+      projectId: this.projectId,
+    });
+
     await memorySystem.cleanupMemory(this.id);
     this.emit('shutdown');
   }
@@ -235,6 +280,8 @@ export class SpawnAgent extends EventEmitter {
   private async forkTaskAgent(type: AgentType, task: Task): Promise<TaskAllocation> {
     const agent = await agentRuntime.forkAgent(type, this.id, { taskId: task.id });
 
+    this.communicationHub.registerChild(agent.id);
+
     const allocation: TaskAllocation = {
       taskId: task.id,
       agentId: agent.id,
@@ -255,7 +302,17 @@ export class SpawnAgent extends EventEmitter {
 
     await skillRegistry.assignSkillsToAgent(agent.id, [task.type, 'communication']);
 
+    await this.communicationHub.sendToChild(agent.id, MessageType.TASK_ASSIGN, {
+      taskId: task.id,
+      task: task,
+      parentId: this.id,
+    });
+
     this.emit('task:allocated', allocation);
     return allocation;
+  }
+
+  getCommunicationHub(): AgentCommunicationHub {
+    return this.communicationHub;
   }
 }
